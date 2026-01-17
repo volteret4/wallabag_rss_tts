@@ -48,56 +48,72 @@ class ArticleToMP3Converter:
 
             print(f"🔄 Traduciendo de {source_lang} a {target_lang}...")
 
-            # Google Translator tiene un límite de 5000 caracteres
-            # Usar 4800 como límite seguro por consulta
-            max_length_per_chunk = 5000
-            max_total_length = max_length_per_chunk * 3  # 9600 caracteres máximo
+            # Límite de 4900 caracteres por consulta (margen de seguridad)
+            max_length_per_chunk = 4900
+            max_chunks = 4  # Hasta 4 consultas
+            max_total_length = max_length_per_chunk * max_chunks  # 19600 caracteres máximo
 
             original_length = len(text)
 
-            # Si el texto es muy largo, truncar a 9600 caracteres
+            # Si el texto es muy largo, truncar
             if original_length > max_total_length:
                 print(f"⚠ Texto muy largo ({original_length} caracteres), truncando a {max_total_length}...")
                 text = text[:max_total_length]
                 original_length = len(text)
 
+            # Calcular número de chunks necesarios
+            num_chunks = (original_length + max_length_per_chunk - 1) // max_length_per_chunk
+
             translator = GoogleTranslator(source=source_lang, target=target_lang)
 
             # Si cabe en una sola consulta
-            if original_length <= max_length_per_chunk:
+            if num_chunks == 1:
                 print(f"📝 Traduciendo en 1 consulta ({original_length} caracteres)...")
                 translated = translator.translate(text)
                 print(f"✓ Traducción completada ({len(translated)} caracteres)")
                 return translated
 
-            # Si necesita 2 consultas
+            # Si necesita múltiples consultas
             else:
-                print(f"📝 Traduciendo en 2 consultas ({original_length} caracteres totales)...")
+                print(f"📝 Traduciendo en {num_chunks} consultas ({original_length} caracteres totales)...")
 
-                # Dividir en dos partes aproximadamente iguales
-                mid_point = len(text) // 2
+                chunks = []
+                chunk_size = original_length // num_chunks
 
-                # Buscar un punto de corte natural (espacio, salto de línea o punto)
-                # cerca del punto medio para evitar cortar palabras
-                search_range = 100  # Buscar dentro de 100 caracteres del punto medio
-                best_cut = mid_point
+                # Dividir el texto en chunks
+                for i in range(num_chunks):
+                    if i == num_chunks - 1:
+                        # Último chunk: tomar todo lo que queda
+                        chunk_start = i * chunk_size
+                        chunk = text[chunk_start:].strip()
+                    else:
+                        # Buscar punto de corte natural
+                        chunk_start = i * chunk_size
+                        chunk_end = (i + 1) * chunk_size
 
-                for i in range(max(0, mid_point - search_range), min(len(text), mid_point + search_range)):
-                    if text[i] in ['\n', '.', '!', '?', ' ']:
-                        if abs(i - mid_point) < abs(best_cut - mid_point):
-                            best_cut = i + 1
+                        # Buscar un buen punto de corte (espacio, salto de línea o punto)
+                        search_range = 100
+                        best_cut = chunk_end
 
-                part1 = text[:best_cut].strip()
-                part2 = text[best_cut:].strip()
+                        for j in range(max(chunk_start, chunk_end - search_range),
+                                      min(len(text), chunk_end + search_range)):
+                            if text[j] in ['\n', '.', '!', '?', ' ']:
+                                if abs(j - chunk_end) < abs(best_cut - chunk_end):
+                                    best_cut = j + 1
 
-                print(f"  Parte 1: {len(part1)} caracteres...")
-                translated_part1 = translator.translate(part1)
+                        chunk = text[chunk_start:best_cut].strip()
 
-                print(f"  Parte 2: {len(part2)} caracteres...")
-                translated_part2 = translator.translate(part2)
+                    chunks.append(chunk)
+
+                # Traducir cada chunk
+                translated_chunks = []
+                for idx, chunk in enumerate(chunks, 1):
+                    print(f"  Parte {idx}/{num_chunks}: {len(chunk)} caracteres...")
+                    translated_chunk = translator.translate(chunk)
+                    translated_chunks.append(translated_chunk)
 
                 # Unir las traducciones con un espacio
-                translated = translated_part1 + " " + translated_part2
+                translated = " ".join(translated_chunks)
 
                 print(f"✓ Traducción completada ({len(translated)} caracteres)")
                 return translated
