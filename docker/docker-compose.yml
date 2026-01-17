@@ -6,16 +6,20 @@ services:
     container_name: podcast-tts
     restart: unless-stopped
 
-    # CRÍTICO: Usar network_mode host para mejor acceso a red
-    # O configurar DNS explícitamente
     ports:
       - "8005:8005"
 
     volumes:
       # Directorio de archivos de audio (persistente)
       - ./audio_articles:/data/audio_articles
+
       # Archivo de configuración
       - ./config.json:/data/config/config.json:ro
+
+      # OPCIONAL: Certificados SSL personalizados
+      # Descomenta y ajusta si usas certificados propios
+      # - ./certs/ca-cert.pem:/data/certs/ca-cert.pem:ro
+      # - ./certs:/data/certs:ro
 
     environment:
       # Zona horaria
@@ -34,32 +38,43 @@ services:
       - CRON_SCHEDULE=0 7 * * *
 
       # Voz predeterminada
-      - DEFAULT_VOICE=es-ES-AlvaroNeural
+      - DEFAULT_VOICE=es-ES-RyanNeural
 
       # Motor TTS (edge o gtts)
+      # Si edge falla por SSL, usa gtts
       - TTS_ENGINE=edge
 
-      # NUEVO: Variables para depuración
-      - PYTHONUNBUFFERED=1
-      - DEBUG=1
+      # === CONFIGURACIÓN SSL ===
+      # Opciones:
+      # 1. VERIFY_SSL=true + sin SSL_CERT_FILE = usa certificados del sistema
+      # 2. VERIFY_SSL=true + SSL_CERT_FILE=/ruta/cert.pem = usa certificado personalizado
+      # 3. VERIFY_SSL=false = NO verificar SSL (solo para desarrollo/testing)
+
+      # Verificar certificados SSL (true/false)
+      # Si tienes problemas con HTTPS/SWAG, pon "false" temporalmente
+      - VERIFY_SSL=false
+
+      # Ruta al certificado CA personalizado (opcional)
+      # Si tienes Let's Encrypt o certificados propios de SWAG
+      # - SSL_CERT_FILE=/data/certs/ca-cert.pem
+
+      # Variables de depuración
+      # - PYTHONUNBUFFERED=1
+      # - DEBUG=1
 
     # DNS configuration - CRÍTICO para resolver dominios externos
     dns:
-      - 1.1.1.1
       - 8.8.8.8
       - 8.8.4.4
+      - 1.1.1.1
 
     # Opciones adicionales de DNS
     dns_search:
       - .
 
-    # Permitir acceso a servicios externos
+    # Permitir acceso a servicios en el host
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-    # Network configuración
-    networks:
-      - podcast-network
 
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8005/podcast.xml || exit 1"]
@@ -73,16 +88,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-networks:
-  podcast-network:
-    driver: bridge
-    # Configuración de red mejorada
-    # ipam:
-    #   config:
-    #     - subnet: 172.28.0.0/16
-    # driver_opts:
-    #   com.docker.network.bridge.name: br-podcast
-    #   com.docker.network.bridge.enable_ip_masquerade: "true"
-    #   com.docker.network.bridge.enable_icc: "true"
-    #   com.docker.network.driver.mtu: "1500"
