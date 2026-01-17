@@ -479,7 +479,7 @@
             <div id="content">
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>Carga un archivo articles_data.json para comenzar</p>
+                    <p>Cargando articles_data.json...</p>
                 </div>
             </div>
         </div>
@@ -497,14 +497,11 @@
                 </div>
             </div>
             <div class="action-buttons">
-                <button
-                    class="btn btn-primary"
-                    onclick="generateSelectionJson()"
-                >
-                    💾 Generar selection.json
+                <button class="btn btn-primary" onclick="saveToServer()">
+                    💾 Guardar en Servidor
                 </button>
-                <button class="btn" onclick="downloadConfig()">
-                    📝 Descargar Config
+                <button class="btn" onclick="downloadSelectionJson()">
+                    ⬇️ Descargar JSON
                 </button>
             </div>
         </div>
@@ -513,7 +510,41 @@
             let articlesData = null;
             let selectedArticles = new Set();
 
-            // Cargar archivo JSON
+            // Cargar automáticamente articles_data.json al iniciar
+            window.addEventListener("DOMContentLoaded", function () {
+                loadArticlesData();
+            });
+
+            // Función para cargar articles_data.json desde el servidor
+            async function loadArticlesData() {
+                try {
+                    const response = await fetch("articles_data.json");
+                    if (!response.ok) {
+                        throw new Error("No se pudo cargar articles_data.json");
+                    }
+                    articlesData = await response.json();
+                    renderArticles();
+                    updateStats();
+                    console.log("✓ articles_data.json cargado automáticamente");
+                } catch (error) {
+                    console.warn(
+                        "⚠ No se pudo cargar articles_data.json automáticamente:",
+                        error.message,
+                    );
+                    document.getElementById("content").innerHTML = `
+                    <div class="loading">
+                        <p>⚠ No se encontró articles_data.json</p>
+                        <p style="margin-top: 1rem; color: var(--text-dim);">Ejecuta: python3 fetch_articles.py</p>
+                        <p style="margin-top: 1rem; color: var(--text-dim);">O carga un archivo manualmente:</p>
+                        <button class="btn btn-primary" style="margin-top: 1rem;" onclick="document.getElementById('fileInput').click()">
+                            📂 Cargar archivo JSON
+                        </button>
+                    </div>
+                `;
+                }
+            }
+
+            // Cargar archivo JSON manualmente
             document
                 .getElementById("fileInput")
                 .addEventListener("change", function (e) {
@@ -744,7 +775,7 @@
                 });
             }
 
-            function generateSelectionJson() {
+            function getSelectionData() {
                 const selected = {
                     wallabag: [],
                     freshrss: {
@@ -784,6 +815,55 @@
                     }
                 });
 
+                return selected;
+            }
+
+            async function saveToServer() {
+                const selected = getSelectionData();
+                const count =
+                    document.querySelectorAll(".checkbox:checked").length;
+
+                if (count === 0) {
+                    alert("⚠ No hay artículos seleccionados");
+                    return;
+                }
+
+                try {
+                    const response = await fetch("/save-selection", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(selected),
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert(
+                            `✓ Guardado en el servidor!\n\n${count} artículos guardados en:\n${result.path}\n\nAhora puedes ejecutar:\npython3 process_selection.py`,
+                        );
+                    } else {
+                        alert(`✗ Error al guardar: ${result.message}`);
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert(
+                        `✗ Error de conexión con el servidor.\n\n¿Está el servidor corriendo?\nEjecuta: python3 server.py`,
+                    );
+                }
+            }
+
+            function downloadSelectionJson() {
+                const selected = getSelectionData();
+                const count =
+                    document.querySelectorAll(".checkbox:checked").length;
+
+                if (count === 0) {
+                    alert("⚠ No hay artículos seleccionados");
+                    return;
+                }
+
                 // Download JSON
                 const blob = new Blob([JSON.stringify(selected, null, 2)], {
                     type: "application/json",
@@ -796,7 +876,7 @@
                 URL.revokeObjectURL(url);
 
                 alert(
-                    `✓ Archivo selection.json descargado con ${document.querySelectorAll(".checkbox:checked").length} artículos seleccionados`,
+                    `✓ Archivo selection.json descargado\n\n${count} artículos seleccionados`,
                 );
             }
 
