@@ -49,41 +49,18 @@ class ArticleToMP3Converter:
             print(f"🔄 Traduciendo de {source_lang} a {target_lang}...")
 
             # Google Translator tiene un límite de ~5000 caracteres
-            # Dividir el texto en chunks si es necesario
-            max_chunk_size = 4500
-            if len(text) <= max_chunk_size:
-                translator = GoogleTranslator(source=source_lang, target=target_lang)
-                translated = translator.translate(text)
-                return translated
+            # Truncar si el texto es muy largo
+            max_length = 5000
 
-            # Dividir en chunks por párrafos/oraciones
-            chunks = []
-            current_chunk = ""
+            if len(text) > max_length:
+                print(f"⚠ Texto muy largo ({len(text)} caracteres), truncando a {max_length}...")
+                text = text[:max_length]
 
-            # Dividir por párrafos
-            paragraphs = text.split('\n\n')
-
-            for para in paragraphs:
-                if len(current_chunk) + len(para) < max_chunk_size:
-                    current_chunk += para + '\n\n'
-                else:
-                    if current_chunk:
-                        chunks.append(current_chunk)
-                    current_chunk = para + '\n\n'
-
-            if current_chunk:
-                chunks.append(current_chunk)
-
-            # Traducir cada chunk
             translator = GoogleTranslator(source=source_lang, target=target_lang)
-            translated_chunks = []
+            translated = translator.translate(text)
 
-            for i, chunk in enumerate(chunks, 1):
-                print(f"  Traduciendo parte {i}/{len(chunks)}...")
-                translated = translator.translate(chunk)
-                translated_chunks.append(translated)
-
-            return '\n\n'.join(translated_chunks)
+            print(f"✓ Traducción completada ({len(translated)} caracteres)")
+            return translated
 
         except Exception as e:
             print(f"✗ Error al traducir: {e}")
