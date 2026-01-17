@@ -48,13 +48,15 @@ class ArticleToMP3Converter:
 
             print(f"🔄 Traduciendo de {source_lang} a {target_lang}...")
 
-            # Google Translator tiene un límite de ~5000 caracteres
-            # Truncar si el texto es muy largo
-            max_length = 5000
+            # Google Translator tiene un límite de 5000 caracteres
+            # Usar 4800 como límite seguro para evitar problemas con codificación
+            max_length = 4800
 
-            if len(text) > max_length:
-                print(f"⚠ Texto muy largo ({len(text)} caracteres), truncando a {max_length}...")
+            original_length = len(text)
+            if original_length > max_length:
+                print(f"⚠ Texto muy largo ({original_length} caracteres), truncando a {max_length}...")
                 text = text[:max_length]
+                print(f"✓ Texto truncado correctamente a {len(text)} caracteres")
 
             translator = GoogleTranslator(source=source_lang, target=target_lang)
             translated = translator.translate(text)
