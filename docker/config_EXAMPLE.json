@@ -1,0 +1,47 @@
+{
+  "wallabag": {
+    "url": "https://tu-wallabag.example.com",
+    "client_id": "tu_client_id_aqui",
+    "client_secret": "tu_client_secret_aqui",
+    "username": "tu_usuario",
+    "password": "tu_contraseña",
+    "limit": 10
+  },
+  "freshrss": {
+    "url": "https://tu-freshrss.example.com",
+    "username": "tu_usuario",
+    "password": "tu_contraseña_api",
+    "limit": 10,
+    "unread_only": true,
+
+    "_comment_categories": "Lista de categorías con límite individual. Usa --freshrss-list para ver las tuyas",
+    "categories": [
+      {
+        "name": "Tecnología",
+        "limit": 5,
+        "voice": "en-US-GuyNeural"  // ← Voz en inglés
+      },
+      {
+        "name": "Noticias",
+        "limit": 3
+        "voice": "es-ES-ElviraNeural"  // ← Voz específica
+      }
+    ],
+
+    "_comment_feeds": "Lista de feeds específicos. Usa --freshrss-list para ver los IDs",
+    "feeds": [
+      {
+        "id": "feed/1",
+        "name": "Mi blog favorito",
+        "limit": 2
+        "voice": "es-ES-AlvaroNeural"  // ← Otra voz
+      },
+      {
+        "id": "feed/5",
+        "name": "Podcast tech",
+        "limit": 3
+        "voice": "es-ES-AlvaroNeural"  // ← Otra voz
+      }
+    ]
+  }
+}

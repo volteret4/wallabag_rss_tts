@@ -1,0 +1,88 @@
+services:
+  podcast-tts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: podcast-tts
+    restart: unless-stopped
+
+    # CRÍTICO: Usar network_mode host para mejor acceso a red
+    # O configurar DNS explícitamente
+    ports:
+      - "8005:8005"
+
+    volumes:
+      # Directorio de archivos de audio (persistente)
+      - ./audio_articles:/data/audio_articles
+      # Archivo de configuración
+      - ./config.json:/data/config/config.json:ro
+
+    environment:
+      # Zona horaria
+      - TZ=Europe/Madrid
+
+      # URL base para el feed (cámbiala por tu IP de Tailscale)
+      - BASE_URL=http://100.90.91.96:8005
+
+      # Título del podcast
+      - PODCAST_TITLE=Mis Artículos TTS
+
+      # Descripción del podcast
+      - PODCAST_DESCRIPTION=Artículos convertidos a audio
+
+      # Hora de actualización diaria (formato cron)
+      - CRON_SCHEDULE=0 7 * * *
+
+      # Voz predeterminada
+      - DEFAULT_VOICE=es-ES-AlvaroNeural
+
+      # Motor TTS (edge o gtts)
+      - TTS_ENGINE=edge
+
+      # NUEVO: Variables para depuración
+      - PYTHONUNBUFFERED=1
+      - DEBUG=1
+
+    # DNS configuration - CRÍTICO para resolver dominios externos
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 8.8.4.4
+
+    # Opciones adicionales de DNS
+    dns_search:
+      - .
+
+    # Permitir acceso a servicios externos
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Network configuración
+    networks:
+      - podcast-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8005/podcast.xml || exit 1"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  podcast-network:
+    driver: bridge
+    # Configuración de red mejorada
+    # ipam:
+    #   config:
+    #     - subnet: 172.28.0.0/16
+    # driver_opts:
+    #   com.docker.network.bridge.name: br-podcast
+    #   com.docker.network.bridge.enable_ip_masquerade: "true"
+    #   com.docker.network.bridge.enable_icc: "true"
+    #   com.docker.network.driver.mtu: "1500"
