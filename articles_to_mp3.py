@@ -49,20 +49,58 @@ class ArticleToMP3Converter:
             print(f"🔄 Traduciendo de {source_lang} a {target_lang}...")
 
             # Google Translator tiene un límite de 5000 caracteres
-            # Usar 4800 como límite seguro para evitar problemas con codificación
-            max_length = 4800
+            # Usar 4800 como límite seguro por consulta
+            max_length_per_chunk = 5000
+            max_total_length = max_length_per_chunk * 3  # 9600 caracteres máximo
 
             original_length = len(text)
-            if original_length > max_length:
-                print(f"⚠ Texto muy largo ({original_length} caracteres), truncando a {max_length}...")
-                text = text[:max_length]
-                print(f"✓ Texto truncado correctamente a {len(text)} caracteres")
+
+            # Si el texto es muy largo, truncar a 9600 caracteres
+            if original_length > max_total_length:
+                print(f"⚠ Texto muy largo ({original_length} caracteres), truncando a {max_total_length}...")
+                text = text[:max_total_length]
+                original_length = len(text)
 
             translator = GoogleTranslator(source=source_lang, target=target_lang)
-            translated = translator.translate(text)
 
-            print(f"✓ Traducción completada ({len(translated)} caracteres)")
-            return translated
+            # Si cabe en una sola consulta
+            if original_length <= max_length_per_chunk:
+                print(f"📝 Traduciendo en 1 consulta ({original_length} caracteres)...")
+                translated = translator.translate(text)
+                print(f"✓ Traducción completada ({len(translated)} caracteres)")
+                return translated
+
+            # Si necesita 2 consultas
+            else:
+                print(f"📝 Traduciendo en 2 consultas ({original_length} caracteres totales)...")
+
+                # Dividir en dos partes aproximadamente iguales
+                mid_point = len(text) // 2
+
+                # Buscar un punto de corte natural (espacio, salto de línea o punto)
+                # cerca del punto medio para evitar cortar palabras
+                search_range = 100  # Buscar dentro de 100 caracteres del punto medio
+                best_cut = mid_point
+
+                for i in range(max(0, mid_point - search_range), min(len(text), mid_point + search_range)):
+                    if text[i] in ['\n', '.', '!', '?', ' ']:
+                        if abs(i - mid_point) < abs(best_cut - mid_point):
+                            best_cut = i + 1
+
+                part1 = text[:best_cut].strip()
+                part2 = text[best_cut:].strip()
+
+                print(f"  Parte 1: {len(part1)} caracteres...")
+                translated_part1 = translator.translate(part1)
+
+                print(f"  Parte 2: {len(part2)} caracteres...")
+                translated_part2 = translator.translate(part2)
+
+                # Unir las traducciones con un espacio
+                translated = translated_part1 + " " + translated_part2
+
+                print(f"✓ Traducción completada ({len(translated)} caracteres)")
+                return translated
 
         except Exception as e:
             print(f"✗ Error al traducir: {e}")
