@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Articles to MP3 - Selector</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Work+Sans:wght@300;400;600;800&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg-primary: #0a0a0a;
+                --bg-secondary: #1a1a1a;
+                --bg-tertiary: #2a2a2a;
+                --accent: #00ff88;
+                --accent-dim: #00cc6a;
+                --text-primary: #ffffff;
+                --text-secondary: #aaaaaa;
+                --text-dim: #666666;
+                --border: #333333;
+                --warning: #ffaa00;
+                --danger: #ff4444;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "Work Sans", sans-serif;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                line-height: 1.6;
+                overflow-x: hidden;
+            }
+
+            .header {
+                background: var(--bg-secondary);
+                border-bottom: 2px solid var(--accent);
+                padding: 2rem;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                backdrop-filter: blur(10px);
+            }
+
+            .header-content {
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+
+            h1 {
+                font-family: "Space Mono", monospace;
+                font-size: 2.5rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                margin-bottom: 0.5rem;
+            }
+
+            .accent-text {
+                color: var(--accent);
+            }
+
+            .subtitle {
+                color: var(--text-secondary);
+                font-size: 1rem;
+                font-weight: 300;
+            }
+
+            .stats-bar {
+                display: flex;
+                gap: 2rem;
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background: var(--bg-tertiary);
+                border-radius: 4px;
+                border-left: 3px solid var(--accent);
+            }
+
+            .stat {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-family: "Space Mono", monospace;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+                font-weight: 800;
+                color: var(--accent);
+            }
+
+            .container {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 2rem;
+            }
+
+            .controls {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 2rem;
+                flex-wrap: wrap;
+            }
+
+            .btn {
+                padding: 0.75rem 1.5rem;
+                background: var(--bg-tertiary);
+                border: 2px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Space Mono", monospace;
+                font-size: 0.9rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .btn:hover {
+                border-color: var(--accent);
+                background: var(--bg-secondary);
+                transform: translateY(-2px);
+            }
+
+            .btn-primary {
+                background: var(--accent);
+                color: var(--bg-primary);
+                border-color: var(--accent);
+                font-weight: 700;
+            }
+
+            .btn-primary:hover {
+                background: var(--accent-dim);
+                border-color: var(--accent-dim);
+            }
+
+            .source-section {
+                margin-bottom: 3rem;
+                border: 1px solid var(--border);
+                background: var(--bg-secondary);
+                overflow: hidden;
+            }
+
+            .source-header {
+                padding: 1.5rem;
+                background: var(--bg-tertiary);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.2s ease;
+            }
+
+            .source-header:hover {
+                background: #333333;
+            }
+
+            .source-title {
+                font-family: "Space Mono", monospace;
+                font-size: 1.5rem;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .source-badge {
+                font-size: 0.75rem;
+                padding: 0.25rem 0.75rem;
+                background: var(--accent);
+                color: var(--bg-primary);
+                border-radius: 20px;
+                font-weight: 700;
+            }
+
+            .category-group {
+                border-bottom: 1px solid var(--border);
+            }
+
+            .category-group:last-child {
+                border-bottom: none;
+            }
+
+            .category-header {
+                padding: 1rem 1.5rem;
+                background: var(--bg-secondary);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                transition: all 0.2s ease;
+            }
+
+            .category-header:hover {
+                background: var(--bg-tertiary);
+                padding-left: 2rem;
+            }
+
+            .category-name {
+                font-weight: 600;
+                font-size: 1.1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .category-count {
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                font-family: "Space Mono", monospace;
+            }
+
+            .articles-list {
+                display: none;
+            }
+
+            .articles-list.active {
+                display: block;
+            }
+
+            .article-item {
+                padding: 1rem 1.5rem;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                gap: 1rem;
+                align-items: start;
+                transition: all 0.2s ease;
+                cursor: pointer;
+            }
+
+            .article-item:hover {
+                background: var(--bg-tertiary);
+                padding-left: 2.5rem;
+            }
+
+            .article-item:last-child {
+                border-bottom: none;
+            }
+
+            .checkbox-wrapper {
+                margin-top: 0.25rem;
+            }
+
+            .checkbox {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+                accent-color: var(--accent);
+            }
+
+            .article-content {
+                flex: 1;
+            }
+
+            .article-title {
+                font-weight: 600;
+                font-size: 1rem;
+                margin-bottom: 0.25rem;
+                color: var(--text-primary);
+            }
+
+            .article-meta {
+                display: flex;
+                gap: 1rem;
+                flex-wrap: wrap;
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                font-family: "Space Mono", monospace;
+            }
+
+            .meta-item {
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .toggle-icon {
+                transition: transform 0.2s ease;
+            }
+
+            .toggle-icon.active {
+                transform: rotate(90deg);
+            }
+
+            .filter-bar {
+                background: var(--bg-secondary);
+                padding: 1rem 1.5rem;
+                margin-bottom: 2rem;
+                border: 1px solid var(--border);
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .filter-input {
+                flex: 1;
+                min-width: 250px;
+                padding: 0.5rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Work Sans", sans-serif;
+                font-size: 0.9rem;
+            }
+
+            .filter-input:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+
+            .loading {
+                text-align: center;
+                padding: 4rem;
+                font-size: 1.5rem;
+                color: var(--text-secondary);
+            }
+
+            .spinner {
+                border: 3px solid var(--border);
+                border-top: 3px solid var(--accent);
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 2rem auto;
+            }
+
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 4rem;
+                color: var(--text-secondary);
+            }
+
+            .empty-state h3 {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .action-panel {
+                position: fixed;
+                bottom: 2rem;
+                right: 2rem;
+                background: var(--bg-secondary);
+                border: 2px solid var(--accent);
+                padding: 1.5rem;
+                border-radius: 4px;
+                box-shadow: 0 10px 40px rgba(0, 255, 136, 0.2);
+                min-width: 300px;
+                z-index: 200;
+            }
+
+            .action-title {
+                font-family: "Space Mono", monospace;
+                font-weight: 700;
+                margin-bottom: 1rem;
+                font-size: 1.1rem;
+            }
+
+            .action-stats {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .action-stat {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.9rem;
+            }
+
+            .action-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            @media (max-width: 768px) {
+                .header {
+                    padding: 1rem;
+                }
+
+                h1 {
+                    font-size: 1.8rem;
+                }
+
+                .stats-bar {
+                    flex-direction: column;
+                    gap: 1rem;
+                }
+
+                .action-panel {
+                    bottom: 1rem;
+                    right: 1rem;
+                    left: 1rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="header-content">
+                <h1><span class="accent-text">▸</span> Articles to MP3</h1>
+                <p class="subtitle">
+                    Selecciona los artículos que quieres convertir a audio
+                </p>
+                <div class="stats-bar">
+                    <div class="stat">
+                        <span class="stat-label">Total</span>
+                        <span class="stat-value" id="totalArticles">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Seleccionados</span>
+                        <span class="stat-value" id="selectedCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Palabras estimadas</span>
+                        <span class="stat-value" id="estimatedWords">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="controls">
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept=".json"
+                    style="display: none"
+                />
+                <button
+                    class="btn"
+                    onclick="document.getElementById('fileInput').click()"
+                >
+                    📂 Cargar articles_data.json
+                </button>
+                <button class="btn" onclick="selectAll()">
+                    ✓ Seleccionar todos
+                </button>
+                <button class="btn" onclick="deselectAll()">
+                    ✗ Deseleccionar todos
+                </button>
+            </div>
+
+            <div class="filter-bar">
+                <input
+                    type="text"
+                    class="filter-input"
+                    id="searchFilter"
+                    placeholder="🔍 Buscar por título..."
+                    onkeyup="filterArticles()"
+                />
+            </div>
+
+            <div id="content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Carga un archivo articles_data.json para comenzar</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-panel" id="actionPanel" style="display: none">
+            <div class="action-title">⚡ Acciones</div>
+            <div class="action-stats">
+                <div class="action-stat">
+                    <span>Artículos:</span>
+                    <span id="actionSelectedCount">0</span>
+                </div>
+                <div class="action-stat">
+                    <span>Palabras:</span>
+                    <span id="actionWords">0</span>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button
+                    class="btn btn-primary"
+                    onclick="generateSelectionJson()"
+                >
+                    💾 Generar selection.json
+                </button>
+                <button class="btn" onclick="downloadConfig()">
+                    📝 Descargar Config
+                </button>
+            </div>
+        </div>
+
+        <script>
+            let articlesData = null;
+            let selectedArticles = new Set();
+
+            // Cargar archivo JSON
+            document
+                .getElementById("fileInput")
+                .addEventListener("change", function (e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        try {
+                            articlesData = JSON.parse(event.target.result);
+                            renderArticles();
+                            updateStats();
+                        } catch (error) {
+                            alert(
+                                "Error al leer el archivo JSON: " +
+                                    error.message,
+                            );
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+
+            function renderArticles() {
+                const content = document.getElementById("content");
+                let html = "";
+
+                // Wallabag
+                if (
+                    articlesData.wallabag &&
+                    articlesData.wallabag.enabled &&
+                    articlesData.wallabag.articles.length > 0
+                ) {
+                    html += renderWallabagSection();
+                }
+
+                // FreshRSS
+                if (articlesData.freshrss && articlesData.freshrss.enabled) {
+                    html += renderFreshRSSSection();
+                }
+
+                if (!html) {
+                    html =
+                        '<div class="empty-state"><h3>No hay artículos disponibles</h3><p>El archivo JSON no contiene artículos.</p></div>';
+                }
+
+                content.innerHTML = html;
+            }
+
+            function renderWallabagSection() {
+                const articles = articlesData.wallabag.articles;
+                let html = `
+                <div class="source-section">
+                    <div class="source-header" onclick="toggleSection('wallabag')">
+                        <div class="source-title">
+                            <span class="toggle-icon" id="toggle-wallabag">▸</span>
+                            Wallabag
+                            <span class="source-badge">${articles.length}</span>
+                        </div>
+                    </div>
+                    <div id="section-wallabag" class="articles-list">
+            `;
+
+                articles.forEach((article, index) => {
+                    const id = `wallabag-${article.id}`;
+                    html += `
+                    <div class="article-item" onclick="toggleArticle('${id}', event)">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" class="checkbox" id="${id}"
+                                   data-source="wallabag"
+                                   data-title="${escapeHtml(article.title)}"
+                                   data-words="${article.word_count}"
+                                   onchange="updateStats()">
+                        </div>
+                        <div class="article-content">
+                            <div class="article-title">${article.title}</div>
+                            <div class="article-meta">
+                                <span class="meta-item">📊 ${article.word_count} palabras</span>
+                                <span class="meta-item">📝 ${article.char_count} caracteres</span>
+                                ${article.is_starred ? '<span class="meta-item">⭐ Favorito</span>' : ""}
+                                ${article.tags.length > 0 ? `<span class="meta-item">🏷️ ${article.tags.join(", ")}</span>` : ""}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                });
+
+                html += "</div></div>";
+                return html;
+            }
+
+            function renderFreshRSSSection() {
+                let html = `
+                <div class="source-section">
+                    <div class="source-header" onclick="toggleSection('freshrss')">
+                        <div class="source-title">
+                            <span class="toggle-icon" id="toggle-freshrss">▸</span>
+                            FreshRSS
+                            <span class="source-badge">${Object.keys(articlesData.freshrss.articles_by_category).length} categorías</span>
+                        </div>
+                    </div>
+                    <div id="section-freshrss" class="articles-list">
+            `;
+
+                // Renderizar por categorías
+                for (const [categoryName, articles] of Object.entries(
+                    articlesData.freshrss.articles_by_category,
+                )) {
+                    if (articles.length === 0) continue;
+
+                    html += `
+                    <div class="category-group">
+                        <div class="category-header" onclick="toggleCategory('${categoryName}')">
+                            <div class="category-name">
+                                <span class="toggle-icon" id="toggle-cat-${categoryName}">▸</span>
+                                ${categoryName}
+                            </div>
+                            <span class="category-count">${articles.length} artículos</span>
+                        </div>
+                        <div id="category-${categoryName}" class="articles-list">
+                `;
+
+                    articles.forEach((article) => {
+                        const id = `freshrss-${article.id}`;
+                        html += `
+                        <div class="article-item" onclick="toggleArticle('${id}', event)">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" class="checkbox" id="${id}"
+                                       data-source="freshrss"
+                                       data-category="${categoryName}"
+                                       data-title="${escapeHtml(article.title)}"
+                                       data-words="${article.word_count}"
+                                       onchange="updateStats()">
+                            </div>
+                            <div class="article-content">
+                                <div class="article-title">${article.title}</div>
+                                <div class="article-meta">
+                                    <span class="meta-item">📊 ${article.word_count} palabras</span>
+                                    <span class="meta-item">📝 ${article.char_count} caracteres</span>
+                                    ${article.author ? `<span class="meta-item">✍️ ${article.author}</span>` : ""}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    });
+
+                    html += "</div></div>";
+                }
+
+                html += "</div></div>";
+                return html;
+            }
+
+            function toggleSection(section) {
+                const content = document.getElementById(`section-${section}`);
+                const icon = document.getElementById(`toggle-${section}`);
+                content.classList.toggle("active");
+                icon.classList.toggle("active");
+            }
+
+            function toggleCategory(category) {
+                const content = document.getElementById(`category-${category}`);
+                const icon = document.getElementById(`toggle-cat-${category}`);
+                content.classList.toggle("active");
+                icon.classList.toggle("active");
+            }
+
+            function toggleArticle(id, event) {
+                if (event.target.type === "checkbox") return;
+                const checkbox = document.getElementById(id);
+                checkbox.checked = !checkbox.checked;
+                updateStats();
+            }
+
+            function selectAll() {
+                document.querySelectorAll(".checkbox").forEach((cb) => {
+                    cb.checked = true;
+                });
+                updateStats();
+            }
+
+            function deselectAll() {
+                document.querySelectorAll(".checkbox").forEach((cb) => {
+                    cb.checked = false;
+                });
+                updateStats();
+            }
+
+            function updateStats() {
+                const checkboxes =
+                    document.querySelectorAll(".checkbox:checked");
+                const count = checkboxes.length;
+                let totalWords = 0;
+
+                checkboxes.forEach((cb) => {
+                    totalWords += parseInt(cb.dataset.words || 0);
+                });
+
+                document.getElementById("selectedCount").textContent = count;
+                document.getElementById("actionSelectedCount").textContent =
+                    count;
+                document.getElementById("estimatedWords").textContent =
+                    totalWords.toLocaleString();
+                document.getElementById("actionWords").textContent =
+                    totalWords.toLocaleString();
+
+                // Mostrar/ocultar panel de acciones
+                document.getElementById("actionPanel").style.display =
+                    count > 0 ? "block" : "none";
+
+                // Update total articles count
+                const totalArticles =
+                    document.querySelectorAll(".checkbox").length;
+                document.getElementById("totalArticles").textContent =
+                    totalArticles;
+            }
+
+            function filterArticles() {
+                const query = document
+                    .getElementById("searchFilter")
+                    .value.toLowerCase();
+                document.querySelectorAll(".article-item").forEach((item) => {
+                    const title = item
+                        .querySelector(".article-title")
+                        .textContent.toLowerCase();
+                    item.style.display = title.includes(query)
+                        ? "flex"
+                        : "none";
+                });
+            }
+
+            function generateSelectionJson() {
+                const selected = {
+                    wallabag: [],
+                    freshrss: {
+                        categories: {},
+                        feeds: {},
+                    },
+                };
+
+                document.querySelectorAll(".checkbox:checked").forEach((cb) => {
+                    const source = cb.dataset.source;
+                    const title = cb.dataset.title;
+                    const id = cb.id;
+
+                    if (source === "wallabag") {
+                        const articleId = id.replace("wallabag-", "");
+                        const article = articlesData.wallabag.articles.find(
+                            (a) => a.id == articleId,
+                        );
+                        if (article) {
+                            selected.wallabag.push(article);
+                        }
+                    } else if (source === "freshrss") {
+                        const category = cb.dataset.category;
+                        if (!selected.freshrss.categories[category]) {
+                            selected.freshrss.categories[category] = [];
+                        }
+                        const articleId = id.replace("freshrss-", "");
+                        const article =
+                            articlesData.freshrss.articles_by_category[
+                                category
+                            ].find((a) => a.id === articleId);
+                        if (article) {
+                            selected.freshrss.categories[category].push(
+                                article,
+                            );
+                        }
+                    }
+                });
+
+                // Download JSON
+                const blob = new Blob([JSON.stringify(selected, null, 2)], {
+                    type: "application/json",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "selection.json";
+                a.click();
+                URL.revokeObjectURL(url);
+
+                alert(
+                    `✓ Archivo selection.json descargado con ${document.querySelectorAll(".checkbox:checked").length} artículos seleccionados`,
+                );
+            }
+
+            function downloadConfig() {
+                alert(
+                    "Esta función generará un config.json con los artículos seleccionados. (Por implementar)",
+                );
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        </script>
+    </body>
+</html>
