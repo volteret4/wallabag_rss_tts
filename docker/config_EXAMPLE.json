@@ -5,7 +5,9 @@
     "client_secret": "tu_client_secret_aqui",
     "username": "tu_usuario",
     "password": "tu_contraseña",
-    "limit": 10
+    "limit": 10,
+    "_comment_original_language": "Opcional: especifica el idioma original de los artículos (es, en, fr, etc.)",
+    "original-language": "en"
   },
   "freshrss": {
     "url": "https://tu-freshrss.example.com",
@@ -14,17 +16,30 @@
     "limit": 10,
     "unread_only": true,
 
+    "_comment_original_language": "Idioma por defecto de los feeds si no se especifica en cada categoría/feed",
+    "original-language": "en",
+
     "_comment_categories": "Lista de categorías con límite individual. Usa --freshrss-list para ver las tuyas",
     "categories": [
       {
         "name": "Tecnología",
         "limit": 5,
-        "voice": "en-US-GuyNeural"  // ← Voz en inglés
+        "voice": "en-US-GuyNeural",
+        "_comment": "Esta categoría está en inglés originalmente",
+        "original-language": "en"
       },
       {
         "name": "Noticias",
-        "limit": 3
-        "voice": "es-ES-ElviraNeural"  // ← Voz específica
+        "limit": 3,
+        "voice": "es-ES-ElviraNeural",
+        "_comment": "Esta categoría está en español, no necesita traducción",
+        "original-language": "es"
+      },
+      {
+        "name": "Ciencia",
+        "limit": 5,
+        "voice": "es-ES-AlvaroNeural",
+        "_comment": "Sin original-language, se detectará automáticamente si se usa --language"
       }
     ],
 
@@ -33,14 +48,25 @@
       {
         "id": "feed/1",
         "name": "Mi blog favorito",
-        "limit": 2
-        "voice": "es-ES-AlvaroNeural"  // ← Otra voz
+        "limit": 2,
+        "voice": "es-ES-AlvaroNeural",
+        "original-language": "es"
       },
       {
         "id": "feed/5",
-        "name": "Podcast tech",
-        "limit": 3
-        "voice": "es-ES-AlvaroNeural"  // ← Otra voz
+        "name": "Tech Crunch",
+        "limit": 3,
+        "voice": "es-ES-ElviraNeural",
+        "_comment": "Feed en inglés que se traducirá al español",
+        "original-language": "en"
+      },
+      {
+        "id": "feed/7",
+        "name": "Le Monde",
+        "limit": 2,
+        "voice": "es-ES-AlvaroNeural",
+        "_comment": "Feed en francés que se traducirá si se usa --language es",
+        "original-language": "fr"
       }
     ]
   }
