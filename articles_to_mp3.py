@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script mejorado para convertir artículos de Wallabag y FreshRSS a MP3 usando TTS
+Script mejorado para convertir artÃ­culos de Wallabag y FreshRSS a MP3 usando TTS
 Genera feed RSS para podcasts
 Requiere: pip install gtts edge-tts requests feedparser beautifulsoup4 mutagen --break-system-packages
 """
@@ -45,8 +45,8 @@ class ArticleToMP3Converter:
         return text
 
     def sanitize_filename(self, filename):
-        """Convierte un título en un nombre de archivo válido"""
-        # Eliminar caracteres no válidos
+        """Convierte un tÃ­tulo en un nombre de archivo vÃ¡lido"""
+        # Eliminar caracteres no vÃ¡lidos
         filename = re.sub(r'[<>:"/\\|?*]', '', filename)
         # Limitar longitud
         filename = filename[:100]
@@ -61,7 +61,7 @@ class ArticleToMP3Converter:
             await communicate.save(filepath)
             return True
         except Exception as e:
-            print(f"✗ Error con edge-tts: {e}")
+            print(f"âœ— Error con edge-tts: {e}")
             return False
 
     def text_to_mp3_gtts(self, text, filepath, lang='es'):
@@ -71,38 +71,44 @@ class ArticleToMP3Converter:
             tts.save(filepath)
             return True
         except Exception as e:
-            print(f"✗ Error con gTTS: {e}")
+            print(f"âœ— Error con gTTS: {e}")
             return False
 
-    def text_to_mp3(self, text, title, lang='es'):
+    def text_to_mp3(self, text, title, lang='es', skip_existing=True):
         """Convierte texto a MP3 usando el motor TTS configurado"""
         try:
             filename = self.sanitize_filename(title)
             filepath = os.path.join(self.output_dir, f"{filename}.mp3")
 
-            # Evitar duplicados
+            # Comprobar si el archivo ya existe
             if os.path.exists(filepath):
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
+                if skip_existing:
+                    print(f"⊙ Ya existe (omitiendo): {filename}.mp3")
+                    return filepath
+                else:
+                    # Si no se quiere omitir, crear con timestamp
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
+                    print(f"⚠ Archivo existe, creando nueva versión: {filename}_{timestamp}.mp3")
 
             print(f"Generando audio ({self.tts_engine}): {filename}.mp3")
 
             success = False
             if self.tts_engine == "edge":
-                # edge-tts es asíncrono, usar asyncio
+                # edge-tts es asÃ­ncrono, usar asyncio
                 success = asyncio.run(self.text_to_mp3_edge(text, filepath))
             elif self.tts_engine == "gtts":
                 success = self.text_to_mp3_gtts(text, filepath, lang)
 
             if success:
-                print(f"✓ Guardado: {filepath}")
+                print(f"âœ“ Guardado: {filepath}")
                 return filepath
             else:
-                print(f"✗ Error al generar audio para '{title}'")
+                print(f"âœ— Error al generar audio para '{title}'")
                 return None
 
         except Exception as e:
-            print(f"✗ Error al generar audio para '{title}': {e}")
+            print(f"âœ— Error al generar audio para '{title}': {e}")
             return None
 
 
@@ -130,14 +136,14 @@ class WallabagClient:
             response = requests.post(auth_url, data=data)
             response.raise_for_status()
             self.token = response.json()['access_token']
-            print("✓ Autenticado en Wallabag")
+            print("âœ“ Autenticado en Wallabag")
             return True
         except Exception as e:
-            print(f"✗ Error de autenticación en Wallabag: {e}")
+            print(f"âœ— Error de autenticaciÃ³n en Wallabag: {e}")
             return False
 
     def get_articles(self, archive=0, limit=10):
-        """Obtiene artículos de Wallabag"""
+        """Obtiene artÃ­culos de Wallabag"""
         if not self.token:
             if not self.authenticate():
                 return []
@@ -158,10 +164,10 @@ class WallabagClient:
             )
             response.raise_for_status()
             articles = response.json()['_embedded']['items']
-            print(f"✓ Obtenidos {len(articles)} artículos de Wallabag")
+            print(f"âœ“ Obtenidos {len(articles)} artÃ­culos de Wallabag")
             return articles
         except Exception as e:
-            print(f"✗ Error al obtener artículos de Wallabag: {e}")
+            print(f"âœ— Error al obtener artÃ­culos de Wallabag: {e}")
             return []
 
 
@@ -173,7 +179,7 @@ class FreshRSSClient:
         self.auth_token = None
 
     def authenticate(self):
-        """Autenticación usando Google Reader API de FreshRSS"""
+        """AutenticaciÃ³n usando Google Reader API de FreshRSS"""
         login_url = f"{self.url}/api/greader.php/accounts/ClientLogin"
 
         data = {
@@ -188,18 +194,18 @@ class FreshRSSClient:
             for line in response.text.strip().split('\n'):
                 if line.startswith('Auth='):
                     self.auth_token = line.split('=', 1)[1]
-                    print(f"✓ Autenticado en FreshRSS")
+                    print(f"âœ“ Autenticado en FreshRSS")
                     return True
 
-            print("✗ No se encontró el token de autenticación")
+            print("âœ— No se encontrÃ³ el token de autenticaciÃ³n")
             return False
 
         except Exception as e:
-            print(f"✗ Error de autenticación en FreshRSS: {e}")
+            print(f"âœ— Error de autenticaciÃ³n en FreshRSS: {e}")
             return False
 
     def list_categories(self):
-        """Lista todas las categorías/tags disponibles"""
+        """Lista todas las categorÃ­as/tags disponibles"""
         if not self.auth_token:
             if not self.authenticate():
                 return []
@@ -216,7 +222,7 @@ class FreshRSSClient:
             categories = []
             for tag in data.get('tags', []):
                 tag_id = tag.get('id', '')
-                # Filtrar solo las categorías (labels)
+                # Filtrar solo las categorÃ­as (labels)
                 if '/label/' in tag_id:
                     category_name = tag_id.split('/label/')[-1]
                     categories.append({
@@ -226,7 +232,7 @@ class FreshRSSClient:
 
             return categories
         except Exception as e:
-            print(f"✗ Error al listar categorías: {e}")
+            print(f"âœ— Error al listar categorÃ­as: {e}")
             return []
 
     def list_feeds(self):
@@ -255,17 +261,17 @@ class FreshRSSClient:
 
             return feeds
         except Exception as e:
-            print(f"✗ Error al listar feeds: {e}")
+            print(f"âœ— Error al listar feeds: {e}")
             return []
 
     def get_articles(self, stream_id=None, limit=10, unread_only=True):
         """
-        Obtiene artículos de FreshRSS
+        Obtiene artÃ­culos de FreshRSS
 
         stream_id puede ser:
-        - None o 'reading-list': todos los artículos
-        - 'user/-/label/CATEGORIA': artículos de una categoría
-        - 'feed/FEED_ID': artículos de un feed específico
+        - None o 'reading-list': todos los artÃ­culos
+        - 'user/-/label/CATEGORIA': artÃ­culos de una categorÃ­a
+        - 'feed/FEED_ID': artÃ­culos de un feed especÃ­fico
         """
         if not self.auth_token:
             if not self.authenticate():
@@ -276,10 +282,10 @@ class FreshRSSClient:
             if stream_id == 'reading-list':
                 stream_path = 'reading-list'
             elif stream_id.startswith('user/-/label/'):
-                # Categoría específica
+                # CategorÃ­a especÃ­fica
                 stream_path = f"contents/{stream_id}"
             elif stream_id.startswith('feed/'):
-                # Feed específico
+                # Feed especÃ­fico
                 stream_path = f"contents/{stream_id}"
             else:
                 stream_path = f"contents/{stream_id}"
@@ -306,40 +312,42 @@ class FreshRSSClient:
             return articles
 
         except Exception as e:
-            print(f"✗ Error al obtener artículos: {e}")
+            print(f"âœ— Error al obtener artÃ­culos: {e}")
             return []
 
 
 class PodcastFeedGenerator:
     """Genera un feed RSS/Podcast simple"""
 
-    def __init__(self, output_dir, base_url, title="Mis Artículos TTS", description="Artículos convertidos a audio"):
+    def __init__(self, output_dir, base_url, title="Mis ArtÃ­culos TTS", description="ArtÃ­culos convertidos a audio", image_url=None, author=None):
         self.output_dir = output_dir
         self.base_url = base_url.rstrip('/')
         self.title = title
         self.description = description
+        self.image_url = image_url
+        self.author = author
         self.episodes = []
 
     def get_file_size(self, filepath):
-        """Obtiene el tamaño del archivo en bytes"""
+        """Obtiene el tamaÃ±o del archivo en bytes"""
         try:
             return os.path.getsize(filepath)
         except:
             return 0
 
     def get_audio_duration(self, filepath):
-        """Intenta obtener la duración del audio"""
+        """Intenta obtener la duraciÃ³n del audio"""
         try:
             from mutagen.mp3 import MP3
             audio = MP3(filepath)
             return int(audio.info.length)
         except:
-            # Estimación basada en tamaño (1 MB ≈ 60 segundos)
+            # EstimaciÃ³n basada en tamaÃ±o (1 MB â‰ˆ 60 segundos)
             size_mb = self.get_file_size(filepath) / (1024 * 1024)
             return int(size_mb * 60)
 
     def add_episode(self, title, filepath, description="", category=""):
-        """Añade un episodio al feed"""
+        """AÃ±ade un episodio al feed"""
         if not os.path.exists(filepath):
             return
 
@@ -369,7 +377,19 @@ class PodcastFeedGenerator:
         SubElement(channel, 'language').text = 'es'
         SubElement(channel, 'lastBuildDate').text = datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')
 
-        # Ordenar episodios por fecha (más reciente primero)
+        # Añadir autor si está disponible
+        if self.author:
+            SubElement(channel, 'itunes:author').text = self.author
+
+        # Añadir imagen si está disponible
+        if self.image_url:
+            SubElement(channel, 'itunes:image', {'href': self.image_url})
+            image_elem = SubElement(channel, 'image')
+            SubElement(image_elem, 'url').text = self.image_url
+            SubElement(image_elem, 'title').text = self.title
+            SubElement(image_elem, 'link').text = self.base_url
+
+        # Ordenar episodios por fecha (mÃ¡s reciente primero)
         sorted_episodes = sorted(self.episodes, key=lambda x: x['pubDate'], reverse=True)
 
         for episode in sorted_episodes:
@@ -392,9 +412,9 @@ class PodcastFeedGenerator:
         with open(output_path, 'wb') as f:
             f.write(xml_str)
 
-        print(f"\n✓ Feed RSS generado: {output_path}")
-        print(f"✓ URL del feed: {self.base_url}/{output_file}")
-        print(f"✓ Episodios: {len(self.episodes)}")
+        print(f"\nâœ“ Feed RSS generado: {output_path}")
+        print(f"âœ“ URL del feed: {self.base_url}/{output_file}")
+        print(f"âœ“ Episodios: {len(self.episodes)}")
 
         return output_path
 
@@ -404,20 +424,20 @@ def print_available_voices():
     try:
         import edge_tts
         print("\n=== Voces disponibles para edge-tts ===")
-        print("\nEspañol:")
+        print("\nEspaÃ±ol:")
         spanish_voices = [
-            "es-ES-AlvaroNeural (Hombre, España)",
-            "es-ES-ElviraNeural (Mujer, España)",
-            "es-ES-AbrilNeural (Mujer, España)",
-            "es-MX-DaliaNeural (Mujer, México)",
-            "es-MX-JorgeNeural (Hombre, México)",
+            "es-ES-AlvaroNeural (Hombre, EspaÃ±a)",
+            "es-ES-ElviraNeural (Mujer, EspaÃ±a)",
+            "es-ES-AbrilNeural (Mujer, EspaÃ±a)",
+            "es-MX-DaliaNeural (Mujer, MÃ©xico)",
+            "es-MX-JorgeNeural (Hombre, MÃ©xico)",
             "es-AR-ElenaNeural (Mujer, Argentina)",
             "es-AR-TomasNeural (Hombre, Argentina)",
         ]
         for voice in spanish_voices:
             print(f"  - {voice}")
 
-        print("\nInglés:")
+        print("\nInglÃ©s:")
         english_voices = [
             "en-US-AriaNeural (Mujer, US)",
             "en-US-GuyNeural (Hombre, US)",
@@ -431,39 +451,39 @@ def print_available_voices():
         print("  edge-tts --list-voices")
 
     except ImportError:
-        print("edge-tts no está instalado. Instálalo con: pip install edge-tts")
+        print("edge-tts no estÃ¡ instalado. InstÃ¡lalo con: pip install edge-tts")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convierte artículos de Wallabag y FreshRSS a MP3 con TTS mejorado',
+        description='Convierte artÃ­culos de Wallabag y FreshRSS a MP3 con TTS mejorado',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos de uso:
   # Usar edge-tts (mejor calidad)
   python3 articles_to_mp3.py --tts edge
 
-  # Usar edge-tts con voz específica
+  # Usar edge-tts con voz especÃ­fica
   python3 articles_to_mp3.py --tts edge --voice es-ES-ElviraNeural
 
   # Ver voces disponibles
   python3 articles_to_mp3.py --list-voices
 
-  # Listar categorías y feeds de FreshRSS
+  # Listar categorÃ­as y feeds de FreshRSS
   python3 articles_to_mp3.py --freshrss-list
         """
     )
 
     parser.add_argument('--config', default='config.json',
-                       help='Archivo de configuración JSON')
+                       help='Archivo de configuraciÃ³n JSON')
     parser.add_argument('--output', default='audio_articles',
                        help='Directorio de salida para los MP3')
     parser.add_argument('--limit', type=int, default=10,
-                       help='Número máximo de artículos (si no se especifica en config)')
+                       help='NÃºmero mÃ¡ximo de artÃ­culos (si no se especifica en config)')
     parser.add_argument('--lang', default='es',
                        help='Idioma para gTTS (es, en, fr, etc.)')
     parser.add_argument('--source', choices=['wallabag', 'freshrss', 'both'],
-                       default='both', help='Fuente de artículos')
+                       default='both', help='Fuente de artÃ­culos')
     parser.add_argument('--tts', choices=['gtts', 'edge'],
                        default='gtts', help='Motor TTS a usar (gtts = estable, edge = mejor calidad)')
     parser.add_argument('--voice', default='es-ES-AlvaroNeural',
@@ -471,15 +491,15 @@ Ejemplos de uso:
     parser.add_argument('--list-voices', action='store_true',
                        help='Muestra las voces disponibles para edge-tts')
     parser.add_argument('--freshrss-list', action='store_true',
-                       help='Lista categorías y feeds de FreshRSS')
+                       help='Lista categorÃ­as y feeds de FreshRSS')
     parser.add_argument('--generate-feed', action='store_true',
                        help='Generar feed RSS/Podcast')
     parser.add_argument('--base-url', default='http://localhost:8005',
                        help='URL base para el feed RSS')
-    parser.add_argument('--feed-title', default='Mis Artículos TTS',
-                       help='Título del podcast')
-    parser.add_argument('--feed-description', default='Artículos convertidos a audio',
-                       help='Descripción del podcast')
+    parser.add_argument('--feed-title', default='Mis ArtÃ­culos TTS',
+                       help='TÃ­tulo del podcast')
+    parser.add_argument('--feed-description', default='ArtÃ­culos convertidos a audio',
+                       help='DescripciÃ³n del podcast')
 
     args = parser.parse_args()
 
@@ -488,19 +508,19 @@ Ejemplos de uso:
         print_available_voices()
         return
 
-    # Cargar configuración
+    # Cargar configuraciÃ³n
     if not os.path.exists(args.config):
-        print(f"✗ No se encuentra el archivo de configuración: {args.config}")
+        print(f"âœ— No se encuentra el archivo de configuraciÃ³n: {args.config}")
         print("\nCrea un archivo config.json. Ver config.json.example para la estructura.")
         return
 
     with open(args.config, 'r') as f:
         config = json.load(f)
 
-    # Listar categorías y feeds de FreshRSS
+    # Listar categorÃ­as y feeds de FreshRSS
     if args.freshrss_list:
         if 'freshrss' not in config:
-            print("✗ No hay configuración de FreshRSS en config.json")
+            print("âœ— No hay configuraciÃ³n de FreshRSS en config.json")
             return
 
         fr_config = config['freshrss']
@@ -510,13 +530,13 @@ Ejemplos de uso:
             fr_config['password']
         )
 
-        print("\n=== CATEGORÍAS ===")
+        print("\n=== CATEGORÃAS ===")
         categories = freshrss.list_categories()
         if categories:
             for cat in categories:
                 print(f"  - {cat['name']}")
         else:
-            print("  No se encontraron categorías")
+            print("  No se encontraron categorÃ­as")
 
         print("\n=== FEEDS ===")
         feeds = freshrss.list_feeds()
@@ -526,19 +546,19 @@ Ejemplos de uso:
                 print(f"  - {feed['title']}")
                 print(f"    ID: {feed['id']}")
                 if categories_str:
-                    print(f"    Categorías: {categories_str}")
+                    print(f"    CategorÃ­as: {categories_str}")
         else:
             print("  No se encontraron feeds")
 
-        print("\nPara usar categorías/feeds específicos, edita tu config.json")
+        print("\nPara usar categorÃ­as/feeds especÃ­ficos, edita tu config.json")
         return
 
-    # Verificar que edge-tts esté instalado si se solicita
+    # Verificar que edge-tts estÃ© instalado si se solicita
     if args.tts == 'edge':
         try:
             import edge_tts
         except ImportError:
-            print("✗ edge-tts no está instalado. Instálalo con:")
+            print("âœ— edge-tts no estÃ¡ instalado. InstÃ¡lalo con:")
             print("  pip install edge-tts --break-system-packages")
             print("\nUsando gTTS como alternativa...")
             args.tts = 'gtts'
@@ -578,7 +598,7 @@ Ejemplos de uso:
         articles = wallabag.get_articles(archive=0, limit=limit)
 
         for article in articles:
-            title = article.get('title', 'Sin título')
+            title = article.get('title', 'Sin tÃ­tulo')
             content = article.get('content', '')
 
             if content:
@@ -605,14 +625,14 @@ Ejemplos de uso:
             fr_config['password']
         )
 
-        # Obtener configuración de categorías y feeds
+        # Obtener configuraciÃ³n de categorÃ­as y feeds
         categories = fr_config.get('categories', [])
         feeds = fr_config.get('feeds', [])
         default_limit = fr_config.get('limit', args.limit)
 
-        # Si no hay categorías ni feeds específicos, obtener de reading-list
+        # Si no hay categorÃ­as ni feeds especÃ­ficos, obtener de reading-list
         if not categories and not feeds:
-            print("Obteniendo artículos de reading-list (todos)...")
+            print("Obteniendo artÃ­culos de reading-list (todos)...")
             articles = freshrss.get_articles(
                 stream_id='reading-list',
                 limit=default_limit,
@@ -620,7 +640,7 @@ Ejemplos de uso:
             )
 
             for article in articles:
-                title = article.get('title', 'Sin título')
+                title = article.get('title', 'Sin tÃ­tulo')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -641,12 +661,12 @@ Ejemplos de uso:
                                     category="General"
                                 )
 
-        # Procesar categorías específicas
+        # Procesar categorÃ­as especÃ­ficas
         for category in categories:
             cat_name = category.get('name')
             cat_limit = category.get('limit', default_limit)
 
-            print(f"\nObteniendo artículos de categoría: {cat_name} (límite: {cat_limit})...")
+            print(f"\nObteniendo artÃ­culos de categorÃ­a: {cat_name} (lÃ­mite: {cat_limit})...")
             stream_id = f"user/-/label/{cat_name}"
             articles = freshrss.get_articles(
                 stream_id=stream_id,
@@ -654,10 +674,10 @@ Ejemplos de uso:
                 unread_only=fr_config.get('unread_only', True)
             )
 
-            print(f"✓ {len(articles)} artículos de '{cat_name}'")
+            print(f"âœ“ {len(articles)} artÃ­culos de '{cat_name}'")
 
             for article in articles:
-                title = article.get('title', 'Sin título')
+                title = article.get('title', 'Sin tÃ­tulo')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -678,23 +698,23 @@ Ejemplos de uso:
                                     category=cat_name
                                 )
 
-        # Procesar feeds específicos
+        # Procesar feeds especÃ­ficos
         for feed in feeds:
             feed_id = feed.get('id')
             feed_limit = feed.get('limit', default_limit)
             feed_name = feed.get('name', feed_id)
 
-            print(f"\nObteniendo artículos de feed: {feed_name} (límite: {feed_limit})...")
+            print(f"\nObteniendo artÃ­culos de feed: {feed_name} (lÃ­mite: {feed_limit})...")
             articles = freshrss.get_articles(
                 stream_id=feed_id,
                 limit=feed_limit,
                 unread_only=fr_config.get('unread_only', True)
             )
 
-            print(f"✓ {len(articles)} artículos de '{feed_name}'")
+            print(f"âœ“ {len(articles)} artÃ­culos de '{feed_name}'")
 
             for article in articles:
-                title = article.get('title', 'Sin título')
+                title = article.get('title', 'Sin tÃ­tulo')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -715,13 +735,13 @@ Ejemplos de uso:
                                     category=feed_name
                                 )
 
-    print(f"\n✓ Proceso completado. {articles_processed} artículos convertidos a MP3")
-    print(f"✓ Motor TTS usado: {args.tts}")
+    print(f"\nâœ“ Proceso completado. {articles_processed} artÃ­culos convertidos a MP3")
+    print(f"âœ“ Motor TTS usado: {args.tts}")
     if args.tts == 'edge':
-        print(f"✓ Voz usada: {args.voice}")
-    print(f"✓ Archivos guardados en: {args.output}")
+        print(f"âœ“ Voz usada: {args.voice}")
+    print(f"âœ“ Archivos guardados en: {args.output}")
 
-    # Generar feed RSS si se solicitó
+    # Generar feed RSS si se solicitÃ³
     if args.generate_feed and feed_generator and feed_generator.episodes:
         feed_generator.generate_rss()
 

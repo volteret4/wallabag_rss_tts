@@ -31,7 +31,7 @@ NC='\033[0m' # No Color
 
 # Configuración por defecto
 AUDIO_DIR="./audio_articles"
-BASE_URL="http://localhost:8005"
+BASE_URL="https://podcast.pollete.duckdns.org"
 PODCAST_TITLE="Mi Podcast TTS"
 PODCAST_DESCRIPTION="Artículos convertidos a audio mediante Text-to-Speech"
 OUTPUT_FILE="podcast.xml"
