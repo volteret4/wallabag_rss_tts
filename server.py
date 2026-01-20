@@ -16,10 +16,15 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# Configuración
-SELECTION_FILE = "selection.json"
-STATUS_FILE = "conversion_status.json"
-LOG_FILE = "conversion_log.txt"
+# Configuración - ajustar según tu setup
+WORK_DIR = os.path.expanduser("~/podcast-tts")  # Directorio de trabajo
+SELECTION_FILE = os.path.join(WORK_DIR, "selection.json")
+STATUS_FILE = os.path.join(WORK_DIR, "conversion_status.json")
+LOG_FILE = os.path.join(WORK_DIR, "conversion_log.txt")
+ARTICLES_DATA_FILE = os.path.join(WORK_DIR, "articles_data.json")
+
+# Crear directorio de trabajo si no existe
+os.makedirs(WORK_DIR, exist_ok=True)
 
 # Estado global del proceso
 conversion_status = {
@@ -61,9 +66,12 @@ def run_conversion():
     try:
         update_status(progress=0, current_article="Iniciando conversión...")
 
+        # Cambiar al directorio de trabajo
+        os.chdir(WORK_DIR)
+
         # Lanzar el script de procesamiento
         process = subprocess.Popen(
-            ['python3', 'process_selection.py', '--selection', SELECTION_FILE],
+            ['python3', 'process_selection.py', '--selection', SELECTION_FILE, '--generate-feed'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -76,10 +84,9 @@ def run_conversion():
                 log.write(line)
                 log.flush()
 
-                # Parsear el progreso (asumiendo que el script imprime "Procesando X/Y: titulo")
+                # Parsear el progreso
                 if "Procesando" in line:
                     try:
-                        # Formato esperado: "Procesando 3/10: Título del artículo"
                         parts = line.split(":")
                         if len(parts) >= 2:
                             progress_part = parts[0].strip()
@@ -107,19 +114,16 @@ def run_conversion():
         update_status(error=f"Error ejecutando conversión: {str(e)}", finished=True)
 
 
-@app.route('/')
-def index():
-    """Servir el HTML principal"""
-    return send_from_directory('.', 'articles_tts.html')
-
-
-@app.route('/articles_data.json')
+@app.route('/api/articles_data.json')
 def articles_data():
     """Servir el JSON de artículos"""
-    return send_from_directory('.', 'articles_data.json')
+    if os.path.exists(ARTICLES_DATA_FILE):
+        return send_from_directory(WORK_DIR, 'articles_data.json')
+    else:
+        return jsonify({"error": "articles_data.json no encontrado"}), 404
 
 
-@app.route('/save-selection', methods=['POST'])
+@app.route('/api/save-selection', methods=['POST'])
 def save_selection():
     """Guardar la selección y lanzar conversión"""
     global conversion_status
@@ -182,13 +186,13 @@ def save_selection():
         }), 500
 
 
-@app.route('/conversion-status', methods=['GET'])
+@app.route('/api/conversion-status', methods=['GET'])
 def get_conversion_status():
     """Obtener el estado actual de la conversión"""
     return jsonify(conversion_status)
 
 
-@app.route('/conversion-log', methods=['GET'])
+@app.route('/api/conversion-log', methods=['GET'])
 def get_conversion_log():
     """Obtener el log de conversión"""
     try:
@@ -210,21 +214,32 @@ def get_conversion_log():
         }), 500
 
 
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({"status": "ok", "working_dir": WORK_DIR})
+
+
 if __name__ == '__main__':
-    print("""
+    print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
 ║   📚 Servidor de Conversión de Artículos a MP3               ║
 ║                                                               ║
-║   🌐 Abre en tu navegador:                                    ║
-║      http://localhost:5000                                    ║
+║   📁 Directorio de trabajo: {WORK_DIR:<30} ║
 ║                                                               ║
-║   📝 Endpoints disponibles:                                   ║
-║      POST   /save-selection      - Guardar y convertir       ║
-║      GET    /conversion-status   - Ver progreso              ║
-║      GET    /conversion-log      - Ver log detallado         ║
+║   🌐 Servidor corriendo en:                                   ║
+║      http://0.0.0.0:5000                                      ║
+║                                                               ║
+║   📝 Endpoints API:                                           ║
+║      POST   /api/save-selection      - Guardar y convertir   ║
+║      GET    /api/conversion-status   - Ver progreso          ║
+║      GET    /api/conversion-log      - Ver log detallado     ║
+║      GET    /api/articles_data.json  - Datos de artículos    ║
+║      GET    /health                  - Health check          ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
     """)
 
-    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    # Correr en 0.0.0.0:5000 para ser accesible desde fuera del contenedor
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
