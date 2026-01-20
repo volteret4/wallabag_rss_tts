@@ -1,0 +1,10 @@
+flask
+flask-cors
+gtts
+edge-tts
+requests
+feedparser
+beautifulsoup4
+mutagen
+langdetect
+deep-translator
