@@ -17,7 +17,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuración - ajustar según tu setup
-WORK_DIR = os.path.expanduser("~/podcast-tts")  # Directorio de trabajo
+WORK_DIR = os.path.expanduser("~/contenedores/podcast-tts")  # Directorio de trabajo
 SELECTION_FILE = os.path.join(WORK_DIR, "selection.json")
 STATUS_FILE = os.path.join(WORK_DIR, "conversion_status.json")
 LOG_FILE = os.path.join(WORK_DIR, "conversion_log.txt")
