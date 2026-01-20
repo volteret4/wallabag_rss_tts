@@ -2,6 +2,7 @@
 """
 Script para obtener todos los feeds de FreshRSS y artículos de Wallabag
 y guardarlos en un JSON para la interfaz web de selección
+Versión mejorada: organiza artículos por Categoría > Feed > Artículos
 """
 
 import os
@@ -9,6 +10,7 @@ import json
 import requests
 import argparse
 from datetime import datetime
+from collections import defaultdict
 
 
 class WallabagClient:
@@ -252,10 +254,7 @@ def fetch_all_data(config_file='config.json', output_file='articles_data.json'):
         },
         'freshrss': {
             'enabled': 'freshrss' in config,
-            'categories': [],
-            'feeds': [],
-            'articles_by_category': {},
-            'articles_by_feed': {}
+            'categories': []
         }
     }
 
@@ -299,92 +298,75 @@ def fetch_all_data(config_file='config.json', output_file='articles_data.json'):
         # Obtener categorías
         print("\nObteniendo categorías...")
         categories = freshrss.list_categories()
-        result['freshrss']['categories'] = categories
         print(f"✓ {len(categories)} categorías encontradas")
 
         # Obtener feeds
         print("\nObteniendo feeds...")
-        feeds = freshrss.list_feeds()
-        result['freshrss']['feeds'] = feeds
-        print(f"✓ {len(feeds)} feeds encontrados")
+        all_feeds = freshrss.list_feeds()
+        print(f"✓ {len(all_feeds)} feeds encontrados")
 
-        # Obtener artículos por categoría
-        print("\nObteniendo artículos por categoría...")
+        # Organizar feeds por categoría
+        feeds_by_category = defaultdict(list)
+        for feed in all_feeds:
+            for cat in feed['categories']:
+                feeds_by_category[cat].append(feed)
+
+        # Para cada categoría, obtener artículos organizados por feed
+        print("\nObteniendo artículos organizados por categoría y feed...")
         for category in categories:
             cat_name = category['name']
-            print(f"  Categoría: {cat_name}")
-            articles = freshrss.get_articles(
-                stream_id=category['id'],
-                limit=100,
-                unread_only=False
-            )
+            print(f"\n📁 Categoría: {cat_name}")
 
-            articles_data = []
-            for article in articles:
-                content = ''
-                if 'summary' in article and 'content' in article['summary']:
-                    content = article['summary']['content']
-                elif 'content' in article and 'content' in article['content']:
-                    content = article['content']['content']
-
-                # Extraer feed origin
-                feed_origin = None
-                if 'origin' in article:
-                    feed_origin = {
-                        'stream_id': article['origin'].get('streamId', ''),
-                        'title': article['origin'].get('title', '')
-                    }
-
-                articles_data.append({
-                    'id': article.get('id', ''),
-                    'title': article.get('title', 'Sin título'),
-                    'published': article.get('published', 0),
-                    'updated': article.get('updated', 0),
-                    'author': article.get('author', ''),
-                    'word_count': len(content.split()),
-                    'char_count': len(content),
-                    'origin': feed_origin,
-                    'alternate': article.get('alternate', [{}])[0].get('href', '') if article.get('alternate') else ''
-                })
-
-            result['freshrss']['articles_by_category'][cat_name] = articles_data
-            print(f"    {len(articles_data)} artículos")
-
-        # Obtener artículos por feed
-        print("\nObteniendo artículos por feed...")
-        for feed in feeds[:10]:  # Limitar a 10 feeds para no hacer demasiadas peticiones
-            feed_title = feed['title']
-            print(f"  Feed: {feed_title}")
-            articles = freshrss.get_articles(
-                stream_id=feed['id'],
-                limit=50,
-                unread_only=False
-            )
-
-            articles_data = []
-            for article in articles:
-                content = ''
-                if 'summary' in article and 'content' in article['summary']:
-                    content = article['summary']['content']
-                elif 'content' in article and 'content' in article['content']:
-                    content = article['content']['content']
-
-                articles_data.append({
-                    'id': article.get('id', ''),
-                    'title': article.get('title', 'Sin título'),
-                    'published': article.get('published', 0),
-                    'updated': article.get('updated', 0),
-                    'author': article.get('author', ''),
-                    'word_count': len(content.split()),
-                    'char_count': len(content),
-                    'alternate': article.get('alternate', [{}])[0].get('href', '') if article.get('alternate') else ''
-                })
-
-            result['freshrss']['articles_by_feed'][feed['id']] = {
-                'title': feed_title,
-                'articles': articles_data
+            category_data = {
+                'id': category['id'],
+                'name': cat_name,
+                'feeds': []
             }
-            print(f"    {len(articles_data)} artículos")
+
+            # Obtener feeds de esta categoría
+            cat_feeds = feeds_by_category.get(cat_name, [])
+
+            for feed in cat_feeds:
+                print(f"  📰 Feed: {feed['title']}")
+
+                # Obtener artículos de este feed
+                articles = freshrss.get_articles(
+                    stream_id=feed['id'],
+                    limit=100,
+                    unread_only=False
+                )
+
+                articles_data = []
+                for article in articles:
+                    content = ''
+                    if 'summary' in article and 'content' in article['summary']:
+                        content = article['summary']['content']
+                    elif 'content' in article and 'content' in article['content']:
+                        content = article['content']['content']
+
+                    articles_data.append({
+                        'id': article.get('id', ''),
+                        'title': article.get('title', 'Sin título'),
+                        'published': article.get('published', 0),
+                        'updated': article.get('updated', 0),
+                        'author': article.get('author', ''),
+                        'word_count': len(content.split()),
+                        'char_count': len(content),
+                        'alternate': article.get('alternate', [{}])[0].get('href', '') if article.get('alternate') else ''
+                    })
+
+                feed_data = {
+                    'id': feed['id'],
+                    'title': feed['title'],
+                    'url': feed['url'],
+                    'article_count': len(articles_data),
+                    'articles': articles_data
+                }
+
+                category_data['feeds'].append(feed_data)
+                print(f"    ✓ {len(articles_data)} artículos")
+
+            result['freshrss']['categories'].append(category_data)
 
     # Guardar resultado
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -398,9 +380,14 @@ def fetch_all_data(config_file='config.json', output_file='articles_data.json'):
         print(f"Wallabag: {len(result['wallabag']['articles'])} artículos")
     if result['freshrss']['enabled']:
         print(f"FreshRSS:")
+        total_feeds = sum(len(cat['feeds']) for cat in result['freshrss']['categories'])
+        total_articles = sum(
+            feed['article_count']
+            for cat in result['freshrss']['categories']
+            for feed in cat['feeds']
+        )
         print(f"  - {len(result['freshrss']['categories'])} categorías")
-        print(f"  - {len(result['freshrss']['feeds'])} feeds")
-        total_articles = sum(len(arts) for arts in result['freshrss']['articles_by_category'].values())
+        print(f"  - {total_feeds} feeds")
         print(f"  - {total_articles} artículos totales")
 
     return True
