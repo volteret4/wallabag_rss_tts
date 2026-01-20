@@ -599,20 +599,51 @@
             let articlesData = null;
 
             async function loadData() {
-                try {
-                    const response = await fetch("/api/articles_data.json");
-                    articlesData = await response.json();
-                    renderArticles();
-                    updateStats();
-                } catch (error) {
-                    console.error("Error al cargar datos:", error);
-                    document.getElementById("articlesContainer").innerHTML = `
-                        <div style="text-align: center; padding: 4rem; color: var(--danger);">
-                            <p style="font-size: 1.2rem;">✗ Error al cargar articles_data.json</p>
-                            <p style="margin-top: 1rem;">Ejecuta: python3 fetch_articles_improved.py en el servidor</p>
-                        </div>
-                    `;
+                // Intentar cargar desde diferentes rutas según el entorno
+                const possiblePaths = [
+                    "/api/articles_data.json", // A través de swag + Flask
+                    "articles_data.json", // Mismo directorio (local)
+                    "./articles_data.json", // Explícito mismo directorio
+                ];
+
+                for (const path of possiblePaths) {
+                    try {
+                        console.log(`Intentando cargar desde: ${path}`);
+                        const response = await fetch(path);
+
+                        if (!response.ok) {
+                            console.log(
+                                `${path} falló con status ${response.status}`,
+                            );
+                            continue;
+                        }
+
+                        articlesData = await response.json();
+                        console.log(`✓ Datos cargados desde: ${path}`);
+                        renderArticles();
+                        updateStats();
+                        return; // Éxito, salir
+                    } catch (error) {
+                        console.log(`Error al intentar ${path}:`, error);
+                        continue;
+                    }
                 }
+
+                // Si llegamos aquí, ninguna ruta funcionó
+                console.error(
+                    "No se pudo cargar articles_data.json desde ninguna ruta",
+                );
+                document.getElementById("articlesContainer").innerHTML = `
+                    <div style="text-align: center; padding: 4rem; color: var(--danger);">
+                        <p style="font-size: 1.2rem;">✗ Error al cargar articles_data.json</p>
+                        <p style="margin-top: 1rem;">Asegúrate de:</p>
+                        <ul style="text-align: left; max-width: 500px; margin: 1rem auto; color: var(--text-secondary);">
+                            <li>Haber ejecutado: <code>python3 fetch_articles_improved.py</code></li>
+                            <li>Que el archivo exista en el directorio correcto</li>
+                            <li>Que el servidor Flask esté corriendo (si usas swag)</li>
+                        </ul>
+                    </div>
+                `;
             }
 
             function renderArticles() {
