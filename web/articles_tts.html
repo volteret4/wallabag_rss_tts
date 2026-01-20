@@ -13,6 +13,7 @@
                 --bg-primary: #0a0a0a;
                 --bg-secondary: #1a1a1a;
                 --bg-tertiary: #2a2a2a;
+                --bg-quaternary: #353535;
                 --accent: #00ff88;
                 --accent-dim: #00cc6a;
                 --text-primary: #ffffff;
@@ -183,6 +184,7 @@
                 font-weight: 700;
             }
 
+            /* Categoría */
             .category-group {
                 border-bottom: 1px solid var(--border);
             }
@@ -221,6 +223,75 @@
                 font-family: "Space Mono", monospace;
             }
 
+            /* Feed */
+            .feed-group {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .feed-group:last-child {
+                border-bottom: none;
+            }
+
+            .feed-header {
+                padding: 0.75rem 2.5rem;
+                background: var(--bg-tertiary);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                user-select: none;
+                transition: all 0.2s ease;
+                border-left: 3px solid transparent;
+            }
+
+            .feed-header:hover {
+                background: var(--bg-quaternary);
+                padding-left: 3rem;
+                border-left-color: var(--accent);
+            }
+
+            .feed-info {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                flex: 1;
+            }
+
+            .feed-checkbox-wrapper {
+                display: flex;
+                align-items: center;
+            }
+
+            .feed-checkbox {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+                accent-color: var(--accent);
+            }
+
+            .feed-name {
+                font-weight: 500;
+                font-size: 1rem;
+                color: var(--text-secondary);
+            }
+
+            .feed-count {
+                font-size: 0.75rem;
+                color: var(--text-dim);
+                font-family: "Space Mono", monospace;
+            }
+
+            .feed-toggle {
+                color: var(--accent);
+                font-size: 1.2rem;
+                transition: transform 0.2s ease;
+            }
+
+            .feed-toggle.active {
+                transform: rotate(90deg);
+            }
+
+            /* Articles list */
             .articles-list {
                 display: none;
             }
@@ -230,31 +301,28 @@
             }
 
             .article-item {
-                padding: 1rem 1.5rem;
-                border-bottom: 1px solid var(--border);
+                padding: 1rem 3.5rem;
+                background: var(--bg-secondary);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.03);
                 display: flex;
                 gap: 1rem;
                 align-items: start;
-                transition: all 0.2s ease;
                 cursor: pointer;
+                transition: all 0.2s ease;
             }
 
             .article-item:hover {
                 background: var(--bg-tertiary);
-                padding-left: 2.5rem;
-            }
-
-            .article-item:last-child {
-                border-bottom: none;
+                padding-left: 4rem;
             }
 
             .checkbox-wrapper {
-                margin-top: 0.25rem;
+                padding-top: 0.2rem;
             }
 
             .checkbox {
-                width: 20px;
-                height: 20px;
+                width: 18px;
+                height: 18px;
                 cursor: pointer;
                 accent-color: var(--accent);
             }
@@ -264,19 +332,17 @@
             }
 
             .article-title {
-                font-weight: 600;
-                font-size: 1rem;
-                margin-bottom: 0.25rem;
+                font-weight: 500;
+                margin-bottom: 0.5rem;
                 color: var(--text-primary);
             }
 
             .article-meta {
                 display: flex;
-                gap: 1rem;
-                flex-wrap: wrap;
-                font-size: 0.8rem;
+                gap: 1.5rem;
+                font-size: 0.85rem;
                 color: var(--text-dim);
-                font-family: "Space Mono", monospace;
+                flex-wrap: wrap;
             }
 
             .meta-item {
@@ -286,6 +352,8 @@
             }
 
             .toggle-icon {
+                color: var(--accent);
+                font-size: 1.2rem;
                 transition: transform 0.2s ease;
             }
 
@@ -293,143 +361,72 @@
                 transform: rotate(90deg);
             }
 
-            .filter-bar {
-                background: var(--bg-secondary);
-                padding: 1rem 1.5rem;
-                margin-bottom: 2rem;
-                border: 1px solid var(--border);
-                display: flex;
-                gap: 1rem;
-                align-items: center;
-                flex-wrap: wrap;
-            }
-
-            .filter-input {
-                flex: 1;
-                min-width: 250px;
-                padding: 0.5rem;
-                background: var(--bg-tertiary);
-                border: 1px solid var(--border);
-                color: var(--text-primary);
-                font-family: "Work Sans", sans-serif;
-                font-size: 0.9rem;
-            }
-
-            .filter-input:focus {
-                outline: none;
-                border-color: var(--accent);
-            }
-
-            .loading {
-                text-align: center;
-                padding: 4rem;
-                font-size: 1.5rem;
-                color: var(--text-secondary);
-            }
-
-            .spinner {
-                border: 3px solid var(--border);
-                border-top: 3px solid var(--accent);
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 2rem auto;
-            }
-
-            @keyframes spin {
-                0% {
-                    transform: rotate(0deg);
-                }
-                100% {
-                    transform: rotate(360deg);
-                }
-            }
-
-            .empty-state {
-                text-align: center;
-                padding: 4rem;
-                color: var(--text-secondary);
-            }
-
-            .empty-state h3 {
-                font-size: 1.5rem;
-                margin-bottom: 1rem;
-            }
-
             .action-panel {
                 position: fixed;
                 bottom: 2rem;
                 right: 2rem;
-                background: var(--bg-secondary);
+                background: var(--bg-tertiary);
                 border: 2px solid var(--accent);
                 padding: 1.5rem;
                 border-radius: 4px;
-                box-shadow: 0 10px 40px rgba(0, 255, 136, 0.2);
-                min-width: 300px;
-                z-index: 200;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+                display: none;
+                z-index: 1000;
             }
 
-            .action-title {
+            .action-panel h3 {
                 font-family: "Space Mono", monospace;
-                font-weight: 700;
+                font-size: 1rem;
                 margin-bottom: 1rem;
-                font-size: 1.1rem;
+                color: var(--accent);
             }
 
             .action-stats {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
                 margin-bottom: 1rem;
-                padding-bottom: 1rem;
-                border-bottom: 1px solid var(--border);
-            }
-
-            .action-stat {
-                display: flex;
-                justify-content: space-between;
                 font-size: 0.9rem;
+                color: var(--text-secondary);
             }
 
             .action-buttons {
                 display: flex;
                 flex-direction: column;
-                gap: 0.75rem;
+                gap: 0.5rem;
             }
 
-            @media (max-width: 768px) {
-                .header {
-                    padding: 1rem;
-                }
+            .search-box {
+                margin-bottom: 1.5rem;
+            }
 
-                h1 {
-                    font-size: 1.8rem;
-                }
+            .search-box input {
+                width: 100%;
+                padding: 0.75rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Work Sans", sans-serif;
+                font-size: 1rem;
+                transition: border-color 0.2s ease;
+            }
 
-                .stats-bar {
-                    flex-direction: column;
-                    gap: 1rem;
-                }
-
-                .action-panel {
-                    bottom: 1rem;
-                    right: 1rem;
-                    left: 1rem;
-                }
+            .search-box input:focus {
+                outline: none;
+                border-color: var(--accent);
             }
         </style>
     </head>
     <body>
         <div class="header">
             <div class="header-content">
-                <h1><span class="accent-text">▸</span> Articles to MP3</h1>
+                <h1>
+                    📚 Articles to
+                    <span class="accent-text">MP3</span>
+                </h1>
                 <p class="subtitle">
-                    Selecciona los artículos que quieres convertir a audio
+                    Selecciona los artículos que quieres convertir en audio
                 </p>
                 <div class="stats-bar">
                     <div class="stat">
-                        <span class="stat-label">Total</span>
+                        <span class="stat-label">Total Artículos</span>
                         <span class="stat-value" id="totalArticles">0</span>
                     </div>
                     <div class="stat">
@@ -437,7 +434,7 @@
                         <span class="stat-value" id="selectedCount">0</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">Palabras estimadas</span>
+                        <span class="stat-label">Palabras</span>
                         <span class="stat-value" id="estimatedWords">0</span>
                     </div>
                 </div>
@@ -445,135 +442,87 @@
         </div>
 
         <div class="container">
-            <div class="controls">
-                <input
-                    type="file"
-                    id="fileInput"
-                    accept=".json"
-                    style="display: none"
-                />
-                <button
-                    class="btn"
-                    onclick="document.getElementById('fileInput').click()"
-                >
-                    📂 Cargar articles_data.json
-                </button>
-                <button class="btn" onclick="selectAll()">
-                    ✓ Seleccionar todos
-                </button>
-                <button class="btn" onclick="deselectAll()">
-                    ✗ Deseleccionar todos
-                </button>
-            </div>
-
-            <div class="filter-bar">
+            <div class="search-box">
                 <input
                     type="text"
-                    class="filter-input"
                     id="searchFilter"
-                    placeholder="🔍 Buscar por título..."
-                    onkeyup="filterArticles()"
+                    placeholder="🔍 Buscar artículos por título..."
+                    oninput="filterArticles()"
                 />
             </div>
 
-            <div id="content">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Cargando articles_data.json...</p>
+            <div class="controls">
+                <button class="btn" onclick="selectAll()">
+                    ✓ Seleccionar Todo
+                </button>
+                <button class="btn" onclick="deselectAll()">
+                    ✗ Deseleccionar Todo
+                </button>
+                <button class="btn" onclick="loadData()">
+                    🔄 Recargar Datos
+                </button>
+            </div>
+
+            <div id="articlesContainer">
+                <div
+                    style="
+                        text-align: center;
+                        padding: 4rem;
+                        color: var(--text-dim);
+                    "
+                >
+                    <p style="font-size: 1.2rem">Cargando datos...</p>
+                    <p style="margin-top: 1rem">
+                        Asegúrate de haber ejecutado: python3 fetch_articles.py
+                    </p>
                 </div>
             </div>
         </div>
 
-        <div class="action-panel" id="actionPanel" style="display: none">
-            <div class="action-title">⚡ Acciones</div>
+        <div id="actionPanel" class="action-panel">
+            <h3>⚡ Acciones</h3>
             <div class="action-stats">
-                <div class="action-stat">
-                    <span>Artículos:</span>
-                    <span id="actionSelectedCount">0</span>
+                <div>
+                    <span id="actionSelectedCount">0</span> artículos
+                    seleccionados
                 </div>
-                <div class="action-stat">
-                    <span>Palabras:</span>
-                    <span id="actionWords">0</span>
-                </div>
+                <div><span id="actionWords">0</span> palabras estimadas</div>
             </div>
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="saveToServer()">
                     💾 Guardar en Servidor
                 </button>
                 <button class="btn" onclick="downloadSelectionJson()">
-                    ⬇️ Descargar JSON
+                    📥 Descargar JSON
                 </button>
             </div>
         </div>
 
         <script>
             let articlesData = null;
-            let selectedArticles = new Set();
 
-            // Cargar automáticamente articles_data.json al iniciar
-            window.addEventListener("DOMContentLoaded", function () {
-                loadArticlesData();
-            });
-
-            // Función para cargar articles_data.json desde el servidor
-            async function loadArticlesData() {
+            async function loadData() {
                 try {
                     const response = await fetch("articles_data.json");
-                    if (!response.ok) {
-                        throw new Error("No se pudo cargar articles_data.json");
-                    }
                     articlesData = await response.json();
                     renderArticles();
                     updateStats();
-                    console.log("✓ articles_data.json cargado automáticamente");
                 } catch (error) {
-                    console.warn(
-                        "⚠ No se pudo cargar articles_data.json automáticamente:",
-                        error.message,
-                    );
-                    document.getElementById("content").innerHTML = `
-                    <div class="loading">
-                        <p>⚠ No se encontró articles_data.json</p>
-                        <p style="margin-top: 1rem; color: var(--text-dim);">Ejecuta: python3 fetch_articles.py</p>
-                        <p style="margin-top: 1rem; color: var(--text-dim);">O carga un archivo manualmente:</p>
-                        <button class="btn btn-primary" style="margin-top: 1rem;" onclick="document.getElementById('fileInput').click()">
-                            📂 Cargar archivo JSON
-                        </button>
-                    </div>
-                `;
+                    console.error("Error al cargar datos:", error);
+                    document.getElementById("articlesContainer").innerHTML = `
+                        <div style="text-align: center; padding: 4rem; color: var(--danger);">
+                            <p style="font-size: 1.2rem;">✗ Error al cargar articles_data.json</p>
+                            <p style="margin-top: 1rem;">Ejecuta: python3 fetch_articles.py</p>
+                        </div>
+                    `;
                 }
             }
 
-            // Cargar archivo JSON manualmente
-            document
-                .getElementById("fileInput")
-                .addEventListener("change", function (e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-
-                    const reader = new FileReader();
-                    reader.onload = function (event) {
-                        try {
-                            articlesData = JSON.parse(event.target.result);
-                            renderArticles();
-                            updateStats();
-                        } catch (error) {
-                            alert(
-                                "Error al leer el archivo JSON: " +
-                                    error.message,
-                            );
-                        }
-                    };
-                    reader.readAsText(file);
-                });
-
             function renderArticles() {
-                const content = document.getElementById("content");
                 let html = "";
 
                 // Wallabag
                 if (
-                    articlesData.wallabag &&
                     articlesData.wallabag.enabled &&
                     articlesData.wallabag.articles.length > 0
                 ) {
@@ -581,16 +530,14 @@
                 }
 
                 // FreshRSS
-                if (articlesData.freshrss && articlesData.freshrss.enabled) {
+                if (
+                    articlesData.freshrss.enabled &&
+                    articlesData.freshrss.categories.length > 0
+                ) {
                     html += renderFreshRSSSection();
                 }
 
-                if (!html) {
-                    html =
-                        '<div class="empty-state"><h3>No hay artículos disponibles</h3><p>El archivo JSON no contiene artículos.</p></div>';
-                }
-
-                content.innerHTML = html;
+                document.getElementById("articlesContainer").innerHTML = html;
             }
 
             function renderWallabagSection() {
@@ -599,15 +546,15 @@
                 <div class="source-section">
                     <div class="source-header" onclick="toggleSection('wallabag')">
                         <div class="source-title">
-                            <span class="toggle-icon" id="toggle-wallabag">▸</span>
-                            Wallabag
+                            📖 Wallabag
                             <span class="source-badge">${articles.length}</span>
                         </div>
+                        <span class="toggle-icon" id="toggle-wallabag">▶</span>
                     </div>
-                    <div id="section-wallabag" class="articles-list">
-            `;
+                    <div class="articles-list" id="section-wallabag">
+                `;
 
-                articles.forEach((article, index) => {
+                articles.forEach((article) => {
                     const id = `wallabag-${article.id}`;
                     html += `
                     <div class="article-item" onclick="toggleArticle('${id}', event)">
@@ -623,12 +570,11 @@
                             <div class="article-meta">
                                 <span class="meta-item">📊 ${article.word_count} palabras</span>
                                 <span class="meta-item">📝 ${article.char_count} caracteres</span>
-                                ${article.is_starred ? '<span class="meta-item">⭐ Favorito</span>' : ""}
-                                ${article.tags.length > 0 ? `<span class="meta-item">🏷️ ${article.tags.join(", ")}</span>` : ""}
+                                ${article.tags.length > 0 ? `<span class="meta-item">🏷 ${article.tags.join(", ")}</span>` : ""}
                             </div>
                         </div>
                     </div>
-                `;
+                    `;
                 });
 
                 html += "</div></div>";
@@ -636,62 +582,100 @@
             }
 
             function renderFreshRSSSection() {
+                const categories = articlesData.freshrss.categories;
                 let html = `
                 <div class="source-section">
                     <div class="source-header" onclick="toggleSection('freshrss')">
                         <div class="source-title">
-                            <span class="toggle-icon" id="toggle-freshrss">▸</span>
-                            FreshRSS
-                            <span class="source-badge">${Object.keys(articlesData.freshrss.articles_by_category).length} categorías</span>
+                            📰 FreshRSS
+                            <span class="source-badge">${categories.length} categorías</span>
                         </div>
+                        <span class="toggle-icon" id="toggle-freshrss">▶</span>
                     </div>
-                    <div id="section-freshrss" class="articles-list">
-            `;
+                    <div class="articles-list" id="section-freshrss">
+                `;
 
-                // Renderizar por categorías
-                for (const [categoryName, articles] of Object.entries(
-                    articlesData.freshrss.articles_by_category,
-                )) {
-                    if (articles.length === 0) continue;
+                categories.forEach((category) => {
+                    const totalArticles = category.feeds.reduce(
+                        (sum, feed) => sum + feed.article_count,
+                        0,
+                    );
 
                     html += `
                     <div class="category-group">
-                        <div class="category-header" onclick="toggleCategory('${categoryName}')">
+                        <div class="category-header" onclick="toggleCategory('${category.name}')">
                             <div class="category-name">
-                                <span class="toggle-icon" id="toggle-cat-${categoryName}">▸</span>
-                                ${categoryName}
+                                <span class="toggle-icon" id="toggle-cat-${category.name}">▶</span>
+                                📁 ${category.name}
                             </div>
-                            <span class="category-count">${articles.length} artículos</span>
+                            <div class="category-count">${category.feeds.length} feeds • ${totalArticles} artículos</div>
                         </div>
-                        <div id="category-${categoryName}" class="articles-list">
-                `;
+                        <div class="articles-list" id="category-${category.name}">
+                    `;
 
-                    articles.forEach((article) => {
-                        const id = `freshrss-${article.id}`;
+                    // Renderizar feeds dentro de la categoría
+                    category.feeds.forEach((feed) => {
+                        const feedId =
+                            `feed-${category.name}-${feed.id}`.replace(
+                                /[^a-zA-Z0-9-_]/g,
+                                "_",
+                            );
+
                         html += `
-                        <div class="article-item" onclick="toggleArticle('${id}', event)">
-                            <div class="checkbox-wrapper">
-                                <input type="checkbox" class="checkbox" id="${id}"
-                                       data-source="freshrss"
-                                       data-category="${categoryName}"
-                                       data-title="${escapeHtml(article.title)}"
-                                       data-words="${article.word_count}"
-                                       onchange="updateStats()">
+                        <div class="feed-group">
+                            <div class="feed-header" onclick="toggleFeed('${feedId}', event)">
+                                <div class="feed-info">
+                                    <div class="feed-checkbox-wrapper" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="feed-checkbox" id="checkbox-${feedId}"
+                                               data-feed-id="${feedId}"
+                                               onchange="toggleFeedSelection('${feedId}', '${category.name}', '${escapeHtml(feed.id)}')">
+                                    </div>
+                                    <div class="feed-name">📰 ${feed.title}</div>
+                                    <div class="feed-count">${feed.article_count} artículos</div>
+                                </div>
+                                <span class="feed-toggle" id="toggle-${feedId}">▶</span>
                             </div>
-                            <div class="article-content">
-                                <div class="article-title">${article.title}</div>
-                                <div class="article-meta">
-                                    <span class="meta-item">📊 ${article.word_count} palabras</span>
-                                    <span class="meta-item">📝 ${article.char_count} caracteres</span>
-                                    ${article.author ? `<span class="meta-item">✍️ ${article.author}</span>` : ""}
+                            <div class="articles-list" id="${feedId}">
+                        `;
+
+                        // Renderizar artículos del feed
+                        feed.articles.forEach((article) => {
+                            const articleId =
+                                `article-${feedId}-${article.id}`.replace(
+                                    /[^a-zA-Z0-9-_]/g,
+                                    "_",
+                                );
+
+                            html += `
+                            <div class="article-item" onclick="toggleArticle('${articleId}', event)">
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" class="checkbox article-checkbox" id="${articleId}"
+                                           data-source="freshrss"
+                                           data-category="${category.name}"
+                                           data-feed-id="${feedId}"
+                                           data-original-feed-id="${feed.id}"
+                                           data-article-id="${article.id}"
+                                           data-title="${escapeHtml(article.title)}"
+                                           data-words="${article.word_count}"
+                                           onchange="updateStats(); updateFeedCheckbox('${feedId}')">
+                                </div>
+                                <div class="article-content">
+                                    <div class="article-title">${article.title}</div>
+                                    <div class="article-meta">
+                                        <span class="meta-item">📊 ${article.word_count} palabras</span>
+                                        <span class="meta-item">📝 ${article.char_count} caracteres</span>
+                                        ${article.author ? `<span class="meta-item">✍️ ${article.author}</span>` : ""}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                            `;
+                        });
+
+                        html += "</div></div>"; // Cerrar feed
                     });
 
-                    html += "</div></div>";
-                }
+                    html += "</div></div>"; // Cerrar categoría
+                });
 
                 html += "</div></div>";
                 return html;
@@ -711,16 +695,79 @@
                 icon.classList.toggle("active");
             }
 
+            function toggleFeed(feedId, event) {
+                // No toggle si el click es en el checkbox
+                if (event.target.type === "checkbox") return;
+
+                const content = document.getElementById(feedId);
+                const icon = document.getElementById(`toggle-${feedId}`);
+                content.classList.toggle("active");
+                icon.classList.toggle("active");
+            }
+
+            function toggleFeedSelection(feedId, category, originalFeedId) {
+                const feedCheckbox = document.getElementById(
+                    `checkbox-${feedId}`,
+                );
+                const isChecked = feedCheckbox.checked;
+
+                // Seleccionar/deseleccionar todos los artículos del feed
+                const articles = document.querySelectorAll(
+                    `input.article-checkbox[data-feed-id="${feedId}"]`,
+                );
+                articles.forEach((article) => {
+                    article.checked = isChecked;
+                });
+
+                updateStats();
+            }
+
+            function updateFeedCheckbox(feedId) {
+                const feedCheckbox = document.getElementById(
+                    `checkbox-${feedId}`,
+                );
+                const articles = document.querySelectorAll(
+                    `input.article-checkbox[data-feed-id="${feedId}"]`,
+                );
+
+                if (articles.length === 0) return;
+
+                const checkedArticles = Array.from(articles).filter(
+                    (a) => a.checked,
+                );
+
+                if (checkedArticles.length === 0) {
+                    feedCheckbox.checked = false;
+                    feedCheckbox.indeterminate = false;
+                } else if (checkedArticles.length === articles.length) {
+                    feedCheckbox.checked = true;
+                    feedCheckbox.indeterminate = false;
+                } else {
+                    feedCheckbox.checked = false;
+                    feedCheckbox.indeterminate = true;
+                }
+            }
+
             function toggleArticle(id, event) {
                 if (event.target.type === "checkbox") return;
                 const checkbox = document.getElementById(id);
                 checkbox.checked = !checkbox.checked;
                 updateStats();
+
+                // Actualizar el checkbox del feed padre
+                const feedId = checkbox.dataset.feedId;
+                if (feedId) {
+                    updateFeedCheckbox(feedId);
+                }
             }
 
             function selectAll() {
                 document.querySelectorAll(".checkbox").forEach((cb) => {
                     cb.checked = true;
+                });
+                document.querySelectorAll(".feed-checkbox").forEach((cb) => {
+                    cb.checked = true;
+                    cb.indeterminate = false;
                 });
                 updateStats();
             }
@@ -728,6 +775,10 @@
             function deselectAll() {
                 document.querySelectorAll(".checkbox").forEach((cb) => {
                     cb.checked = false;
+                });
+                document.querySelectorAll(".feed-checkbox").forEach((cb) => {
+                    cb.checked = false;
+                    cb.indeterminate = false;
                 });
                 updateStats();
             }
@@ -750,11 +801,9 @@
                 document.getElementById("actionWords").textContent =
                     totalWords.toLocaleString();
 
-                // Mostrar/ocultar panel de acciones
                 document.getElementById("actionPanel").style.display =
                     count > 0 ? "block" : "none";
 
-                // Update total articles count
                 const totalArticles =
                     document.querySelectorAll(".checkbox").length;
                 document.getElementById("totalArticles").textContent =
@@ -780,17 +829,14 @@
                     wallabag: [],
                     freshrss: {
                         categories: {},
-                        feeds: {},
                     },
                 };
 
                 document.querySelectorAll(".checkbox:checked").forEach((cb) => {
                     const source = cb.dataset.source;
-                    const title = cb.dataset.title;
-                    const id = cb.id;
 
                     if (source === "wallabag") {
-                        const articleId = id.replace("wallabag-", "");
+                        const articleId = cb.id.replace("wallabag-", "");
                         const article = articlesData.wallabag.articles.find(
                             (a) => a.id == articleId,
                         );
@@ -799,18 +845,41 @@
                         }
                     } else if (source === "freshrss") {
                         const category = cb.dataset.category;
+                        const originalFeedId = cb.dataset.originalFeedId;
+                        const articleId = cb.dataset.articleId;
+
                         if (!selected.freshrss.categories[category]) {
-                            selected.freshrss.categories[category] = [];
+                            selected.freshrss.categories[category] = {};
                         }
-                        const articleId = id.replace("freshrss-", "");
-                        const article =
-                            articlesData.freshrss.articles_by_category[
-                                category
-                            ].find((a) => a.id === articleId);
-                        if (article) {
-                            selected.freshrss.categories[category].push(
-                                article,
+                        if (
+                            !selected.freshrss.categories[category][
+                                originalFeedId
+                            ]
+                        ) {
+                            selected.freshrss.categories[category][
+                                originalFeedId
+                            ] = [];
+                        }
+
+                        // Buscar el artículo en los datos
+                        const categoryData =
+                            articlesData.freshrss.categories.find(
+                                (c) => c.name === category,
                             );
+                        if (categoryData) {
+                            const feedData = categoryData.feeds.find(
+                                (f) => f.id === originalFeedId,
+                            );
+                            if (feedData) {
+                                const article = feedData.articles.find(
+                                    (a) => a.id === articleId,
+                                );
+                                if (article) {
+                                    selected.freshrss.categories[category][
+                                        originalFeedId
+                                    ].push(article);
+                                }
+                            }
                         }
                     }
                 });
@@ -864,7 +933,6 @@
                     return;
                 }
 
-                // Download JSON
                 const blob = new Blob([JSON.stringify(selected, null, 2)], {
                     type: "application/json",
                 });
@@ -880,17 +948,14 @@
                 );
             }
 
-            function downloadConfig() {
-                alert(
-                    "Esta función generará un config.json con los artículos seleccionados. (Por implementar)",
-                );
-            }
-
             function escapeHtml(text) {
                 const div = document.createElement("div");
                 div.textContent = text;
                 return div.innerHTML;
             }
+
+            // Cargar datos al inicio
+            loadData();
         </script>
     </body>
 </html>
