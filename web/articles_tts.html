@@ -600,7 +600,7 @@
 
             async function loadData() {
                 try {
-                    const response = await fetch("articles_data.json");
+                    const response = await fetch("/api/articles_data.json");
                     articlesData = await response.json();
                     renderArticles();
                     updateStats();
@@ -609,7 +609,7 @@
                     document.getElementById("articlesContainer").innerHTML = `
                         <div style="text-align: center; padding: 4rem; color: var(--danger);">
                             <p style="font-size: 1.2rem;">✗ Error al cargar articles_data.json</p>
-                            <p style="margin-top: 1rem;">Ejecuta: python3 fetch_articles.py</p>
+                            <p style="margin-top: 1rem;">Ejecuta: python3 fetch_articles_improved.py en el servidor</p>
                         </div>
                     `;
                 }
@@ -1001,7 +1001,7 @@
                     showProgressModal();
                     updateProgress(0, count, "Iniciando conversión...");
 
-                    const response = await fetch("/save-selection", {
+                    const response = await fetch("/api/save-selection", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -1022,7 +1022,7 @@
                     console.error("Error:", error);
                     hideProgressModal();
                     alert(
-                        `✗ Error de conexión con el servidor.\n\n¿Está el servidor corriendo?\nEjecuta: python3 server.py`,
+                        `✗ Error de conexión con el servidor.\n\nVerifica que el servidor esté corriendo en el contenedor.`,
                     );
                 }
             }
@@ -1054,7 +1054,7 @@
                 // Hacer polling cada 1 segundo
                 progressInterval = setInterval(async () => {
                     try {
-                        const response = await fetch("/conversion-status");
+                        const response = await fetch("/api/conversion-status");
                         const status = await response.json();
 
                         updateProgress(
