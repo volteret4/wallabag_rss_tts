@@ -146,6 +146,25 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None)
         fr_config['password']
     )
 
+    # Cargar articles_data.json para obtener nombres de feeds
+    feed_names = {}
+    try:
+        articles_data_file = 'articles_data.json'
+        if os.path.exists(articles_data_file):
+            with open(articles_data_file, 'r') as f:
+                articles_data = json.load(f)
+
+            # Construir un mapa de feed_id -> feed_title
+            for category in articles_data.get('freshrss', {}).get('categories', []):
+                for feed in category.get('feeds', []):
+                    feed_names[feed['id']] = feed['title']
+
+            print(f"📚 Cargados nombres de {len(feed_names)} feeds")
+        else:
+            print("⚠️  No se encuentra articles_data.json, los títulos no incluirán el nombre del feed")
+    except Exception as e:
+        print(f"⚠️  Error cargando nombres de feeds: {e}")
+
     processed = 0
     article_count = 0
 
@@ -154,7 +173,10 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None)
         print(f"\n📁 Categoría: {category_name}")
 
         for feed_id, articles in feeds.items():
-            print(f"\n  📰 Feed: {feed_id} ({len(articles)} artículos)")
+            # Obtener nombre del feed
+            feed_name = feed_names.get(feed_id, feed_id.split('/')[-1])  # Fallback al ID
+
+            print(f"\n  📰 Feed: {feed_name} ({len(articles)} artículos)")
 
             for article_info in articles:
                 article_count += 1
@@ -198,9 +220,13 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None)
 
                     if text:
                         original_language = fr_config.get('original-language')
+
+                        # Formato: [Categoría] Nombre del Feed - Título del artículo
+                        episode_title = f"[{category_name}] {feed_name} - {title}"
+
                         filepath = converter.process_and_convert(
                             text,
-                            f"[{category_name}] {title}",
+                            episode_title,
                             original_language=original_language
                         )
 
@@ -210,9 +236,9 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None)
 
                             if feed_generator:
                                 feed_generator.add_episode(
-                                    title=f"[{category_name}] {title}",
+                                    title=episode_title,
                                     filepath=filepath,
-                                    description=title,
+                                    description=f"{feed_name}: {title}",
                                     category=category_name
                                 )
 
