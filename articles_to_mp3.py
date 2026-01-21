@@ -480,7 +480,10 @@ class PodcastFeedGenerator:
             return
 
         filename = os.path.basename(filepath)
-        url = f"{self.base_url}/{filename}"
+        # Incluir el directorio en la URL
+        # Si output_dir es "audio_articles", incluirlo en la ruta
+        dir_name = os.path.basename(self.output_dir)
+        url = f"{self.base_url}/{dir_name}/{filename}"
 
         episode = {
             'title': title,
