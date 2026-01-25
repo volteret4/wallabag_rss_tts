@@ -9,6 +9,10 @@ import json
 import argparse
 import sys
 import asyncio
+import glob
+import shutil
+import tempfile
+import subprocess
 
 # Importar las clases del script principal
 # Asumiendo que articles_to_mp3.py estÃ¡ en el mismo directorio
@@ -20,16 +24,200 @@ try:
         PodcastFeedGenerator
     )
 except ImportError:
-    print("Error: No se puede importar articles_to_mp3.py")
-    print("Asegúrate de que articles_to_mp3.py esté en el mismo directorio")
+    print("âœ— Error: No se puede importar articles_to_mp3.py")
+    print("  AsegÃºrate de que articles_to_mp3.py estÃ© en el mismo directorio")
     sys.exit(1)
 
 
+
+# ============================================================================
+# Funciones para procesamiento de audio de YouTube
+# ============================================================================
+
+def extract_youtube_urls(html_content):
+    """
+    Extrae URLs de YouTube del contenido HTML
+    Soporta varios formatos:
+    - https://www.youtube.com/watch?v=VIDEO_ID
+    - https://youtu.be/VIDEO_ID
+    - https://www.youtube.com/embed/VIDEO_ID
+    - iframes de YouTube
+    """
+    youtube_urls = []
+
+    # Patrón para URLs directas
+    patterns = [
+        r'https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+        r'https?://youtu\.be/([a-zA-Z0-9_-]+)',
+        r'https?://(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]+)',
+    ]
+
+    for pattern in patterns:
+        matches = re.finditer(pattern, html_content)
+        for match in matches:
+            video_id = match.group(1)
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            if url not in youtube_urls:
+                youtube_urls.append(url)
+
+    return youtube_urls
+
+
+def download_youtube_audio(url, output_dir, title_prefix="yt_audio"):
+    """
+    Descarga el audio de un video de YouTube usando yt-dlp
+
+    Returns:
+        str: Ruta al archivo de audio descargado, o None si falla
+    """
+    try:
+        # Crear nombre de archivo temporal
+        temp_filename = os.path.join(output_dir, f"{title_prefix}_%(id)s.%(ext)s")
+
+        # Comando yt-dlp para descargar solo audio en formato MP3
+        cmd = [
+            'yt-dlp',
+            '--extract-audio',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',  # Mejor calidad
+            '-o', temp_filename,
+            '--no-playlist',
+            '--quiet',
+            '--no-warnings',
+            url
+        ]
+
+        # Ejecutar yt-dlp
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            # Buscar el archivo descargado
+            # yt-dlp cambia el nombre del archivo, así que buscamos archivos .mp3 recientes
+            import glob
+            pattern = os.path.join(output_dir, f"{title_prefix}_*.mp3")
+            files = glob.glob(pattern)
+
+            if files:
+                # Ordenar por tiempo de modificación y tomar el más reciente
+                latest_file = max(files, key=os.path.getmtime)
+                print(f"  ✓ Audio de YouTube descargado: {os.path.basename(latest_file)}")
+                return latest_file
+            else:
+                print(f"  ✗ No se encontró el archivo descargado")
+                return None
+        else:
+            print(f"  ✗ Error descargando audio de YouTube: {result.stderr}")
+            return None
+
+    except Exception as e:
+        print(f"  ✗ Error al descargar audio de YouTube: {e}")
+        return None
+
+
+def combine_audio_files(audio_files, output_file):
+    """
+    Combina múltiples archivos de audio en uno solo usando ffmpeg
+
+    Args:
+        audio_files: Lista de rutas a archivos de audio (en orden)
+        output_file: Ruta al archivo de salida
+
+    Returns:
+        bool: True si tuvo éxito, False si falló
+    """
+    if not audio_files:
+        return False
+
+    if len(audio_files) == 1:
+        # Si solo hay un archivo, simplemente copiarlo
+        import shutil
+        shutil.copy(audio_files[0], output_file)
+        return True
+
+    try:
+        # Crear un archivo de lista temporal para ffmpeg
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            list_file = f.name
+            for audio_file in audio_files:
+                # Escapar comillas simples en el nombre del archivo
+                safe_path = audio_file.replace("'", "'\\''")
+                f.write(f"file '{safe_path}'\n")
+
+        # Comando ffmpeg para concatenar
+        cmd = [
+            'ffmpeg',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', list_file,
+            '-c', 'copy',
+            '-y',  # Sobrescribir si existe
+            output_file
+        ]
+
+        # Ejecutar ffmpeg
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL
+        )
+
+        # Limpiar archivo temporal
+        os.unlink(list_file)
+
+        if result.returncode == 0:
+            print(f"  ✓ Audios combinados exitosamente")
+            return True
+        else:
+            print(f"  ✗ Error combinando audios con ffmpeg")
+            return False
+
+    except Exception as e:
+        print(f"  ✗ Error al combinar audios: {e}")
+        return False
+
+
+def check_dependencies():
+    """
+    Verifica que yt-dlp y ffmpeg estén instalados
+
+    Returns:
+        tuple: (yt-dlp_available, ffmpeg_available)
+    """
+    yt_dlp_available = False
+    ffmpeg_available = False
+
+    try:
+        result = subprocess.run(
+            ['yt-dlp', '--version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        yt_dlp_available = result.returncode == 0
+    except:
+        pass
+
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        ffmpeg_available = result.returncode == 0
+    except:
+        pass
+
+    return yt_dlp_available, ffmpeg_available
+
+
 def load_config(config_file='config.json'):
-    """Carga la configuración desde config.json"""
+    """Carga la configuraciÃ³n desde config.json"""
     if not os.path.exists(config_file):
-        print(f"No se encuentra {config_file}")
-        print("Se necesita config.json con las credenciales de Wallabag/FreshRSS")
+        print(f"âœ— No se encuentra {config_file}")
+        print("  Se necesita config.json con las credenciales de Wallabag/FreshRSS")
         return None
 
     with open(config_file, 'r') as f:
@@ -111,10 +299,6 @@ def process_wallabag_articles(selection, config, converter, feed_generator=None,
                             filepath=filepath,
                             description=f"De Wallabag",
                             category="Wallabag"
-
-                    # Marcar como leído si se solicitó
-                    if mark_as_read:
-                        wallabag.mark_as_read(article_id)
                         )
 
         except Exception as e:
@@ -244,10 +428,6 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None,
                                     filepath=filepath,
                                     description=f"{feed_name}: {title}",
                                     category=category_name
-
-                            # Marcar como leído si se solicitó
-                            if mark_as_read:
-                                freshrss.mark_as_read(article_id)
                                 )
 
                 except Exception as e:
@@ -296,11 +476,16 @@ def main():
         return 1
 
     print(f"""
-Conversión de Artículos Seleccionados a MP3
- Motor TTS: {args.tts}
- Voz: {args.voice}
- Salida: {args.output}
- Omitir existentes: {args.skip_existing}
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘                                                               â•‘
+â•‘   ðŸŽ™ï¸  ConversiÃ³n de ArtÃ­culos Seleccionados a MP3            â•‘
+â•‘                                                               â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+âš™ï¸  Motor TTS: {args.tts}
+ðŸ”Š Voz: {args.voice}
+ðŸ“ Salida: {args.output}
+ðŸ”„ Omitir existentes: {args.skip_existing}
     """)
 
     if args.language:
@@ -346,9 +531,14 @@ Conversión de Artículos Seleccionados a MP3
 
     # Resumen
     print(f"""
-Proceso Completado
- {total_processed} artículos convertidos exitosamente
- Archivos guardados en: {args.output:<30}
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+â•‘                                                               â•‘
+â•‘   âœ“ Proceso Completado                                       â•‘
+â•‘                                                               â•‘
+â•‘   ðŸ“Š {total_processed} artÃ­culos convertidos exitosamente                  â•‘
+â•‘   ðŸ“ Archivos guardados en: {args.output:<30} â•‘
+â•‘                                                               â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     """)
 
     # Generar feed RSS si se solicitÃ³

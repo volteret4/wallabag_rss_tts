@@ -14,9 +14,197 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import re
 import argparse
+import glob
+import shutil
+import tempfile
+import subprocess
 import asyncio
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
+
+
+
+# ============================================================================
+# Funciones para procesamiento de audio de YouTube
+# ============================================================================
+
+def extract_youtube_urls(html_content):
+    """
+    Extrae URLs de YouTube del contenido HTML
+    Soporta varios formatos:
+    - https://www.youtube.com/watch?v=VIDEO_ID
+    - https://youtu.be/VIDEO_ID
+    - https://www.youtube.com/embed/VIDEO_ID
+    - iframes de YouTube
+    """
+    youtube_urls = []
+
+    # Patrón para URLs directas
+    patterns = [
+        r'https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+        r'https?://youtu\.be/([a-zA-Z0-9_-]+)',
+        r'https?://(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]+)',
+    ]
+
+    for pattern in patterns:
+        matches = re.finditer(pattern, html_content)
+        for match in matches:
+            video_id = match.group(1)
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            if url not in youtube_urls:
+                youtube_urls.append(url)
+
+    return youtube_urls
+
+
+def download_youtube_audio(url, output_dir, title_prefix="yt_audio"):
+    """
+    Descarga el audio de un video de YouTube usando yt-dlp
+
+    Returns:
+        str: Ruta al archivo de audio descargado, o None si falla
+    """
+    try:
+        # Crear nombre de archivo temporal
+        temp_filename = os.path.join(output_dir, f"{title_prefix}_%(id)s.%(ext)s")
+
+        # Comando yt-dlp para descargar solo audio en formato MP3
+        cmd = [
+            'yt-dlp',
+            '--extract-audio',
+            '--audio-format', 'mp3',
+            '--audio-quality', '0',  # Mejor calidad
+            '-o', temp_filename,
+            '--no-playlist',
+            '--quiet',
+            '--no-warnings',
+            url
+        ]
+
+        # Ejecutar yt-dlp
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            # Buscar el archivo descargado
+            # yt-dlp cambia el nombre del archivo, así que buscamos archivos .mp3 recientes
+            import glob
+            pattern = os.path.join(output_dir, f"{title_prefix}_*.mp3")
+            files = glob.glob(pattern)
+
+            if files:
+                # Ordenar por tiempo de modificación y tomar el más reciente
+                latest_file = max(files, key=os.path.getmtime)
+                print(f"  ✓ Audio de YouTube descargado: {os.path.basename(latest_file)}")
+                return latest_file
+            else:
+                print(f"  ✗ No se encontró el archivo descargado")
+                return None
+        else:
+            print(f"  ✗ Error descargando audio de YouTube: {result.stderr}")
+            return None
+
+    except Exception as e:
+        print(f"  ✗ Error al descargar audio de YouTube: {e}")
+        return None
+
+
+def combine_audio_files(audio_files, output_file):
+    """
+    Combina múltiples archivos de audio en uno solo usando ffmpeg
+
+    Args:
+        audio_files: Lista de rutas a archivos de audio (en orden)
+        output_file: Ruta al archivo de salida
+
+    Returns:
+        bool: True si tuvo éxito, False si falló
+    """
+    if not audio_files:
+        return False
+
+    if len(audio_files) == 1:
+        # Si solo hay un archivo, simplemente copiarlo
+        import shutil
+        shutil.copy(audio_files[0], output_file)
+        return True
+
+    try:
+        # Crear un archivo de lista temporal para ffmpeg
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            list_file = f.name
+            for audio_file in audio_files:
+                # Escapar comillas simples en el nombre del archivo
+                safe_path = audio_file.replace("'", "'\\''")
+                f.write(f"file '{safe_path}'\n")
+
+        # Comando ffmpeg para concatenar
+        cmd = [
+            'ffmpeg',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', list_file,
+            '-c', 'copy',
+            '-y',  # Sobrescribir si existe
+            output_file
+        ]
+
+        # Ejecutar ffmpeg
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL
+        )
+
+        # Limpiar archivo temporal
+        os.unlink(list_file)
+
+        if result.returncode == 0:
+            print(f"  ✓ Audios combinados exitosamente")
+            return True
+        else:
+            print(f"  ✗ Error combinando audios con ffmpeg")
+            return False
+
+    except Exception as e:
+        print(f"  ✗ Error al combinar audios: {e}")
+        return False
+
+
+def check_dependencies():
+    """
+    Verifica que yt-dlp y ffmpeg estén instalados
+
+    Returns:
+        tuple: (yt-dlp_available, ffmpeg_available)
+    """
+    yt_dlp_available = False
+    ffmpeg_available = False
+
+    try:
+        result = subprocess.run(
+            ['yt-dlp', '--version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        yt_dlp_available = result.returncode == 0
+    except:
+        pass
+
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        ffmpeg_available = result.returncode == 0
+    except:
+        pass
+
+    return yt_dlp_available, ffmpeg_available
 
 
 class ArticleToMP3Converter:
@@ -238,6 +426,120 @@ class ArticleToMP3Converter:
         except Exception as e:
             print(f"âœ— Error al generar audio para '{title}': {e}")
             return None
+
+
+
+    def process_and_convert_with_youtube(self, text, html_content, title, original_language=None, lang='es'):
+        """
+        Procesa artículo con texto y videos de YouTube, creando un MP3 combinado
+
+        Args:
+            text: Texto limpio del artículo (ya procesado con clean_text)
+            html_content: Contenido HTML original (para extraer URLs de YouTube)
+            title: Título del artículo
+            original_language: Idioma original especificado en config (opcional)
+            lang: Idioma para gTTS
+
+        Returns:
+            str: Ruta al archivo MP3 final, o None si falla
+        """
+        print(f"\n🎬 Procesando artículo con contenido de YouTube: {title}")
+
+        # 1. Extraer URLs de YouTube
+        youtube_urls = extract_youtube_urls(html_content)
+
+        if not youtube_urls:
+            print(f"  ℹ️  No se encontraron videos de YouTube, procesando como artículo normal")
+            return self.process_and_convert(text, title, original_language, lang)
+
+        print(f"  📺 Encontrados {len(youtube_urls)} videos de YouTube")
+        for i, url in enumerate(youtube_urls, 1):
+            print(f"    {i}. {url}")
+
+        # Crear directorio temporal para archivos intermedios
+        temp_dir = tempfile.mkdtemp(prefix="article_youtube_")
+        audio_parts = []
+
+        try:
+            # 2. Generar TTS del texto
+            print(f"  🔊 Generando audio del texto...")
+
+            # Detectar idioma y traducir si es necesario
+            if self.target_language:
+                detected_lang = original_language or self.detect_language(text)
+                if detected_lang:
+                    detected_lang_short = detected_lang.split('-')[0].lower()
+                    target_lang_short = self.target_language.split('-')[0].lower()
+
+                    if detected_lang_short != target_lang_short:
+                        text = self.translate_text(text, detected_lang_short, target_lang_short)
+
+            # Generar audio del texto
+            tts_file = os.path.join(temp_dir, "tts_text.mp3")
+
+            success = False
+            if self.tts_engine == "edge":
+                import asyncio
+                success = asyncio.run(self.text_to_mp3_edge(text, tts_file))
+            elif self.tts_engine == "gtts":
+                success = self.text_to_mp3_gtts(text, tts_file, lang)
+
+            if success and os.path.exists(tts_file):
+                audio_parts.append(tts_file)
+                print(f"  ✓ Audio del texto generado")
+            else:
+                print(f"  ✗ Error al generar audio del texto")
+
+            # 3. Descargar audio de videos de YouTube
+            print(f"  📥 Descargando audio de videos de YouTube...")
+            for i, url in enumerate(youtube_urls, 1):
+                print(f"    Descargando video {i}/{len(youtube_urls)}...")
+                yt_audio = download_youtube_audio(url, temp_dir, f"yt_{i}")
+                if yt_audio and os.path.exists(yt_audio):
+                    audio_parts.append(yt_audio)
+                else:
+                    print(f"    ⚠️  No se pudo descargar el audio del video {i}")
+
+            if len(audio_parts) == 0:
+                print(f"  ✗ No se generó ningún audio")
+                return None
+
+            # 4. Combinar todos los audios
+            print(f"  🔗 Combinando {len(audio_parts)} archivos de audio...")
+
+            # Crear nombre de archivo final
+            filename = self.sanitize_filename(title)
+            filepath = os.path.join(self.output_dir, f"{filename}.mp3")
+
+            # Comprobar si el archivo ya existe
+            if os.path.exists(filepath):
+                if self.skip_existing:
+                    print(f"  ⊙ Ya existe (omitiendo): {filename}.mp3")
+                    return filepath
+                else:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
+
+            # Combinar archivos
+            if combine_audio_files(audio_parts, filepath):
+                print(f"  ✓ Archivo final creado: {os.path.basename(filepath)}")
+                print(f"  📊 Componentes: 1 TTS + {len(youtube_urls)} video(s) de YouTube")
+                return filepath
+            else:
+                print(f"  ✗ Error al combinar archivos de audio")
+                return None
+
+        except Exception as e:
+            print(f"  ✗ Error procesando artículo con YouTube: {e}")
+            return None
+
+        finally:
+            # Limpiar archivos temporales
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+            except:
+                pass
 
 
 class WallabagClient:
@@ -716,6 +1018,41 @@ Ejemplos de uso:
 
     args = parser.parse_args()
 
+
+    # Verificar dependencias para YouTube si hay feeds configurados con include_youtube
+    needs_youtube_deps = False
+    if os.path.exists(args.config):
+        with open(args.config, 'r') as f:
+            config_preview = json.load(f)
+
+        # Verificar si hay feeds o categorías con include_youtube
+        if 'freshrss' in config_preview:
+            for feed in config_preview['freshrss'].get('feeds', []):
+                if feed.get('include_youtube', False):
+                    needs_youtube_deps = True
+                    break
+
+            if not needs_youtube_deps:
+                for cat in config_preview['freshrss'].get('categories', []):
+                    if cat.get('include_youtube', False):
+                        needs_youtube_deps = True
+                        break
+
+        # Si se necesitan dependencias de YouTube, verificarlas
+        if needs_youtube_deps:
+            yt_dlp_ok, ffmpeg_ok = check_dependencies()
+
+            if not yt_dlp_ok or not ffmpeg_ok:
+                print("\n⚠️  ADVERTENCIA: Funcionalidad de YouTube habilitada pero faltan dependencias:")
+                if not yt_dlp_ok:
+                    print("  ✗ yt-dlp no está instalado")
+                    print("    Instala con: pip install yt-dlp --break-system-packages")
+                    print("    O en Ubuntu: sudo apt install yt-dlp")
+                if not ffmpeg_ok:
+                    print("  ✗ ffmpeg no está instalado")
+                    print("    Instala con: sudo apt install ffmpeg")
+                print("\n  Los artículos con videos de YouTube se procesarán sin el audio de los videos.\n")
+
     # Mostrar voces disponibles
     if args.list_voices:
         print_available_voices()
@@ -942,12 +1279,27 @@ Ejemplos de uso:
                 if content:
                     text = converter.clean_text(content)
                     if text:
-                        filepath = converter.process_and_convert(
-                            text,
-                            f"[{cat_name}] {title}",
-                            original_language=cat_original_language,
-                            lang=args.lang
-                        )
+                        # Verificar si esta categoría incluye procesamiento de YouTube
+                        cat_include_youtube = category.get('include_youtube', False)
+
+                        if cat_include_youtube:
+                            # Procesar con YouTube
+                            filepath = converter.process_and_convert_with_youtube(
+                                text,
+                                content,  # HTML original
+                                f"[{cat_name}] {title}",
+                                original_language=cat_original_language,
+                                lang=args.lang
+                            )
+                        else:
+                            # Procesamiento normal
+                            filepath = converter.process_and_convert(
+                                text,
+                                f"[{cat_name}] {title}",
+                                original_language=cat_original_language,
+                                lang=args.lang
+                            )
+
                         if filepath:
                             articles_processed += 1
                             if feed_generator:
@@ -995,12 +1347,27 @@ Ejemplos de uso:
                 if content:
                     text = converter.clean_text(content)
                     if text:
-                        filepath = converter.process_and_convert(
-                            text,
-                            f"[{feed_name}] {title}",
-                            original_language=feed_original_language,
-                            lang=args.lang
-                        )
+                        # Verificar si este feed incluye procesamiento de YouTube
+                        feed_include_youtube = feed.get('include_youtube', False)
+
+                        if feed_include_youtube:
+                            # Procesar con YouTube
+                            filepath = converter.process_and_convert_with_youtube(
+                                text,
+                                content,  # HTML original
+                                f"[{feed_name}] {title}",
+                                original_language=feed_original_language,
+                                lang=args.lang
+                            )
+                        else:
+                            # Procesamiento normal
+                            filepath = converter.process_and_convert(
+                                text,
+                                f"[{feed_name}] {title}",
+                                original_language=feed_original_language,
+                                lang=args.lang
+                            )
+
                         if filepath:
                             articles_processed += 1
                             if feed_generator:
