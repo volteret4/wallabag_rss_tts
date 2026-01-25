@@ -172,6 +172,116 @@ def combine_audio_files(audio_files, output_file):
         return False
 
 
+
+def add_chapters_to_mp3(mp3_file, chapters):
+    """
+    Añade capítulos a un archivo MP3 usando mutagen
+
+    Args:
+        mp3_file: Ruta al archivo MP3
+        chapters: Lista de diccionarios con 'title', 'start_time' (en milisegundos)
+                 Ejemplo: [
+                     {'title': 'Texto del artículo', 'start_time': 0},
+                     {'title': 'Video 1', 'start_time': 180000},  # 3 minutos
+                 ]
+
+    Returns:
+        bool: True si tuvo éxito, False si falló
+    """
+    try:
+        from mutagen.mp3 import MP3
+        from mutagen.id3 import ID3, CTOC, CHAP, TIT2, CTOCFlags
+
+        # Cargar archivo MP3
+        audio = MP3(mp3_file, ID3=ID3)
+
+        # Asegurarse de que hay tags ID3
+        if audio.tags is None:
+            audio.add_tags()
+
+        # Limpiar capítulos existentes si los hay
+        for key in list(audio.tags.keys()):
+            if key.startswith('CHAP') or key.startswith('CTOC'):
+                del audio.tags[key]
+
+        # Obtener duración total del archivo en milisegundos
+        total_duration_ms = int(audio.info.length * 1000)
+
+        # Crear frames de capítulos
+        chapter_ids = []
+        for i, chapter in enumerate(chapters):
+            chapter_id = f"chp{i}"
+            chapter_ids.append(chapter_id)
+
+            start_time = chapter['start_time']
+            # El final es el inicio del siguiente capítulo, o el final del archivo
+            if i < len(chapters) - 1:
+                end_time = chapters[i + 1]['start_time']
+            else:
+                end_time = total_duration_ms
+
+            # Crear frame CHAP
+            chap = CHAP(
+                encoding=3,  # UTF-8
+                element_id=chapter_id,
+                start_time=start_time,
+                end_time=end_time,
+                start_offset=0xFFFFFFFF,  # No se usa
+                end_offset=0xFFFFFFFF,    # No se usa
+                sub_frames=[
+                    TIT2(encoding=3, text=chapter['title'])
+                ]
+            )
+            audio.tags.add(chap)
+
+        # Crear tabla de contenidos (CTOC) que agrupa todos los capítulos
+        ctoc = CTOC(
+            encoding=3,
+            element_id='toc',
+            flags=CTOCFlags.TOP_LEVEL | CTOCFlags.ORDERED,
+            child_element_ids=chapter_ids,
+            sub_frames=[
+                TIT2(encoding=3, text='Contenido')
+            ]
+        )
+        audio.tags.add(ctoc)
+
+        # Guardar cambios
+        audio.save()
+
+        print(f"  ✓ {len(chapters)} capítulos añadidos al archivo MP3")
+        return True
+
+    except Exception as e:
+        print(f"  ⚠️  Error al añadir capítulos: {e}")
+        print(f"     (El archivo MP3 se creó correctamente, solo sin capítulos)")
+        return False
+
+
+def get_audio_duration_ms(filepath):
+    """
+    Obtiene la duración de un archivo de audio en milisegundos
+
+    Args:
+        filepath: Ruta al archivo de audio
+
+    Returns:
+        int: Duración en milisegundos, o 0 si falla
+    """
+    try:
+        from mutagen.mp3 import MP3
+        audio = MP3(filepath)
+        return int(audio.info.length * 1000)
+    except:
+        # Fallback: estimación basada en tamaño de archivo
+        # 1 MB ≈ 60 segundos para MP3 a 128kbps
+        try:
+            size_mb = os.path.getsize(filepath) / (1024 * 1024)
+            return int(size_mb * 60 * 1000)
+        except:
+            return 0
+
+
 def check_dependencies():
     """
     Verifica que yt-dlp y ffmpeg estén instalados
@@ -504,7 +614,35 @@ class ArticleToMP3Converter:
                 print(f"  ✗ No se generó ningún audio")
                 return None
 
-            # 4. Combinar todos los audios
+            # 4. Preparar información de capítulos
+            print(f"  📑 Preparando información de capítulos...")
+            chapters = []
+            current_time_ms = 0
+
+            # Capítulo 1: Texto del artículo
+            chapters.append({
+                'title': 'Texto del artículo',
+                'start_time': current_time_ms
+            })
+
+            # Obtener duración del audio TTS
+            if len(audio_parts) > 0:
+                tts_duration_ms = get_audio_duration_ms(audio_parts[0])
+                current_time_ms += tts_duration_ms
+
+            # Capítulos para cada video de YouTube
+            for i in range(1, len(audio_parts)):
+                video_num = i
+                chapters.append({
+                    'title': f'Video {video_num}',
+                    'start_time': current_time_ms
+                })
+
+                # Obtener duración de este video
+                video_duration_ms = get_audio_duration_ms(audio_parts[i])
+                current_time_ms += video_duration_ms
+
+            # 5. Combinar todos los audios
             print(f"  🔗 Combinando {len(audio_parts)} archivos de audio...")
 
             # Crear nombre de archivo final
@@ -524,6 +662,12 @@ class ArticleToMP3Converter:
             if combine_audio_files(audio_parts, filepath):
                 print(f"  ✓ Archivo final creado: {os.path.basename(filepath)}")
                 print(f"  📊 Componentes: 1 TTS + {len(youtube_urls)} video(s) de YouTube")
+
+                # 6. Añadir capítulos al archivo MP3
+                if len(chapters) > 1:
+                    print(f"  📖 Añadiendo {len(chapters)} capítulos al MP3...")
+                    add_chapters_to_mp3(filepath, chapters)
+
                 return filepath
             else:
                 print(f"  ✗ Error al combinar archivos de audio")
@@ -622,12 +766,17 @@ class WallabagClient:
             return None
 
     def mark_as_read(self, article_id):
-        """Marca un artículo como leído en Wallabag"""
+        """Marca un artículo como leído (archivado) en Wallabag"""
         if not self.token:
             if not self.authenticate():
                 return False
 
-        headers = {'Authorization': f'Bearer {self.token}'}
+        headers = {
+            'Authorization': f'Bearer {self.token}',
+            'Content-Type': 'application/json'
+        }
+
+        # En Wallabag, marcar como leído = archivar el artículo
         data = {'archive': 1}
 
         try:
@@ -637,10 +786,18 @@ class WallabagClient:
                 json=data
             )
             response.raise_for_status()
-            print(f"  ✓ Marcado como leído en Wallabag")
-            return True
+
+            # Verificar respuesta
+            result = response.json()
+            if result.get('is_archived') == 1 or result.get('is_archived') == True:
+                print(f"  ✓ Marcado como leído en Wallabag (ID: {article_id})")
+                return True
+            else:
+                print(f"  ⚠️  Respuesta inesperada al marcar como leído")
+                return False
+
         except Exception as e:
-            print(f"  ✗ Error al marcar como leído: {e}")
+            print(f"  ✗ Error al marcar como leído (ID: {article_id}): {e}")
             return False
 
 
