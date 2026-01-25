@@ -952,8 +952,12 @@ class FreshRSSClient:
                 return False
 
         url = f"{self.url}/api/greader.php/reader/api/0/edit-tag"
-        headers = {'Authorization': f'GoogleLogin auth={self.auth_token}'}
+        headers = {
+            'Authorization': f'GoogleLogin auth={self.auth_token}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
 
+        # FreshRSS usa la API de Google Reader
         data = {
             'i': article_id,
             'a': 'user/-/state/com.google/read',
@@ -963,10 +967,22 @@ class FreshRSSClient:
         try:
             response = requests.post(url, headers=headers, data=data)
             response.raise_for_status()
-            print(f"  ✓ Marcado como leído en FreshRSS")
-            return True
+
+            # La API de Google Reader devuelve "OK" en texto plano si tuvo éxito
+            if response.text.strip().upper() == 'OK':
+                print(f"  ✓ Marcado como leído en FreshRSS (ID: {article_id})")
+                return True
+            else:
+                print(f"  ⚠️  Respuesta inesperada de FreshRSS: {response.text[:100]}")
+                # Aún así considerarlo exitoso si no hubo error HTTP
+                return True
+
+        except requests.exceptions.HTTPError as e:
+            print(f"  ✗ Error HTTP al marcar como leído en FreshRSS: {e}")
+            print(f"     Respuesta del servidor: {e.response.text[:200] if e.response else 'N/A'}")
+            return False
         except Exception as e:
-            print(f"  ✗ Error al marcar como leído: {e}")
+            print(f"  ✗ Error al marcar como leído en FreshRSS: {e}")
             return False
 
 
@@ -1170,6 +1186,9 @@ Ejemplos de uso:
                        help='TÃ­tulo del podcast')
     parser.add_argument('--feed-description', default='ArtÃ­culos convertidos a audio',
                        help='DescripciÃ³n del podcast')
+
+    parser.add_argument('--mark-as-read', action='store_true',
+                       help='Marcar artículos como leídos después de procesarlos')
 
     parser.set_defaults(skip_existing=True)
 
@@ -1547,6 +1566,8 @@ Ejemplos de uso:
     if args.language:
         print(f"âœ“ TraducciÃ³n automÃ¡tica: activada (destino: {args.language})")
     print(f"âœ“ Omitir existentes: {'SÃ­' if args.skip_existing else 'No'}")
+    if args.mark_as_read:
+        print(f"✓ Marcar como leído: Sí")
     print(f"âœ“ Archivos guardados en: {args.output}")
 
     # Generar feed RSS si se solicitÃ³
