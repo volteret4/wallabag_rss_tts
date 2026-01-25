@@ -148,23 +148,30 @@ def combine_audio_files(audio_files, output_file):
             output_file
         ]
 
-        # Ejecutar ffmpeg
+        # Ejecutar ffmpeg (capturando stderr solo para errores)
         result = subprocess.run(
             cmd,
-            capture_output=True,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True
         )
 
         # Limpiar archivo temporal
-        os.unlink(list_file)
+        try:
+            os.unlink(list_file)
+        except:
+            pass
 
         if result.returncode == 0:
             print(f"  ✓ Audios combinados exitosamente")
             return True
         else:
-            print(f"  ✗ Error combinando audios con ffmpeg")
+            print(f"  ✗ Error combinando audios con ffmpeg (código: {result.returncode})")
+            if result.stderr:
+                # Mostrar solo las últimas líneas del error
+                error_lines = result.stderr.strip().split('\n')
+                if error_lines:
+                    print(f"     Último error: {error_lines[-1][:100]}")
             return False
 
     except Exception as e:
