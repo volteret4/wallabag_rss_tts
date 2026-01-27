@@ -451,7 +451,7 @@ class ArticleToMP3Converter:
         # Eliminar emoticonos y símbolos raros (mantener solo ASCII, espacios, guiones, corchetes)
         filename = re.sub(r'[^\x00-\x7F]+', '', filename)
         # Eliminar caracteres no válidos para archivos
-        filename = re.sub(r'[<>,:"/\\|?*]', '', filename)
+        filename = re.sub(r'[<>:"/\\|?*]', '', filename)
         # Reemplazar múltiples espacios por uno solo
         filename = re.sub(r'\s+', ' ', filename)
         # Limitar longitud
@@ -1527,9 +1527,8 @@ Ejemplos de uso:
 
             print(f"Ã¢Å“â€œ {len(articles)} artÃƒÂ­culos de '{cat_name}'")
 
-            # Actualizar voz si es especÃƒÂ­fica de la categorÃƒÂ­a
-            if cat_voice != converter.voice:
-                converter.voice = cat_voice
+            # Actualizar voz (usar la del config o la de args)
+            converter.voice = cat_voice
 
             for article in articles:
                 title = article.get('title', 'Sin tÃƒÂ­tulo')
@@ -1595,9 +1594,8 @@ Ejemplos de uso:
 
             print(f"Ã¢Å“â€œ {len(articles)} artÃƒÂ­culos de '{feed_name}'")
 
-            # Actualizar voz si es especÃƒÂ­fica del feed
-            if feed_voice != converter.voice:
-                converter.voice = feed_voice
+            # Actualizar voz (usar la del config o la de args)
+            converter.voice = feed_voice
 
             for article in articles:
                 title = article.get('title', 'Sin tÃƒÂ­tulo')
