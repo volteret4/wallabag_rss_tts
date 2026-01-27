@@ -451,7 +451,7 @@ class ArticleToMP3Converter:
         # Eliminar emoticonos y símbolos raros (mantener solo ASCII, espacios, guiones, corchetes)
         filename = re.sub(r'[^\x00-\x7F]+', '', filename)
         # Eliminar caracteres no válidos para archivos
-        filename = re.sub(r'[<>:"/\\|?*]', '', filename)
+        filename = re.sub(r'[<>,:"/\\|?*]', '', filename)
         # Reemplazar múltiples espacios por uno solo
         filename = re.sub(r'\s+', ' ', filename)
         # Limitar longitud
