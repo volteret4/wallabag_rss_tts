@@ -464,22 +464,13 @@ def main():
     parser.add_argument('--feed-description', default='ArtÃƒÂ­culos convertidos a audio',
                        help='DescripciÃƒÂ³n del podcast')
     parser.add_argument('--only-xml', action='store_true',
-                       help='Solo generar podcast.xml desde archivos MP3 existentes (no procesar artículos)')
+                       help='Solo generar podcast.xml desde archivos MP3 existentes')
 
     args = parser.parse_args()
 
-    # Si solo se quiere generar el XML, hacerlo y salir
+    # Si solo se quiere generar el XML
     if args.only_xml:
-        print("\n" + "="*60)
-        print("📻 GENERANDO FEED DESDE ARCHIVOS EXISTENTES")
-        print("="*60)
-
-        # Determinar feed_dir
-        if args.output in ['.', '']:
-            feed_dir = '.'
-        else:
-            feed_dir = os.path.dirname(args.output) or '.'
-
+        feed_dir = os.path.dirname(args.output) if args.output not in ['.', ''] else '.'
         success = generate_feed_from_existing_files(
             output_dir=args.output,
             base_url=args.base_url,
@@ -487,13 +478,7 @@ def main():
             feed_description=args.feed_description,
             feed_dir=feed_dir
         )
-
-        if success:
-            print("\n✓ Feed RSS generado exitosamente")
-            return 0
-        else:
-            print("\n✗ Error al generar el feed")
-            return 1
+        return 0 if success else 1
 
     # Cargar configuraciÃƒÂ³n
     config = load_config(args.config)
