@@ -1105,6 +1105,79 @@ class PodcastFeedGenerator:
         return output_path
 
 
+
+
+def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_description, feed_dir=None):
+    """
+    Genera un feed RSS basándose en los archivos MP3 existentes en output_dir
+
+    Args:
+        output_dir: Directorio donde están los archivos MP3
+        base_url: URL base del podcast
+        feed_title: Título del podcast
+        feed_description: Descripción del podcast
+        feed_dir: Directorio donde guardar el XML (por defecto: padre de output_dir)
+
+    Returns:
+        bool: True si tuvo éxito, False si falló
+    """
+    if not os.path.exists(output_dir):
+        print(f"✗ El directorio {output_dir} no existe")
+        return False
+
+    # Buscar todos los archivos MP3
+    mp3_files = glob.glob(os.path.join(output_dir, "*.mp3"))
+
+    if not mp3_files:
+        print(f"✗ No se encontraron archivos MP3 en {output_dir}")
+        return False
+
+    print(f"\n📁 Directorio: {output_dir}")
+    print(f"✓ Encontrados {len(mp3_files)} archivos MP3")
+
+    # Crear feed generator
+    feed_generator = PodcastFeedGenerator(
+        output_dir=output_dir,
+        base_url=base_url,
+        title=feed_title,
+        description=feed_description,
+        feed_dir=feed_dir
+    )
+
+    # Agregar cada MP3 como episodio
+    print(f"\n📝 Agregando episodios al feed...")
+    for mp3_file in sorted(mp3_files, key=lambda x: os.path.getmtime(x), reverse=True):
+        filename = os.path.basename(mp3_file)
+        # Extraer título del nombre del archivo (sin extensión)
+        title = os.path.splitext(filename)[0]
+
+        # Intentar extraer categoría si el título tiene formato [Categoría] Título
+        category = ""
+        if title.startswith('[') and ']' in title:
+            category_end = title.index(']')
+            category = title[1:category_end]
+            title_clean = title[category_end+1:].strip()
+            # Remover "- " si existe al inicio
+            if title_clean.startswith('- '):
+                title_clean = title_clean[2:]
+        else:
+            title_clean = title
+
+        print(f"  + {filename}")
+
+        feed_generator.add_episode(
+            title=title,
+            filepath=mp3_file,
+            description=title_clean,
+            category=category
+        )
+
+    # Generar el feed
+    print(f"\n🎙️  Generando feed RSS...")
+    feed_generator.generate_rss()
+    return True
+
+
 def print_available_voices():
     """Muestra las voces disponibles para edge-tts"""
     try:
@@ -1201,6 +1274,8 @@ Ejemplos de uso:
 
     parser.add_argument('--mark-as-read', action='store_true',
                        help='Marcar artÃ­culos como leÃ­dos despuÃ©s de procesarlos')
+    parser.add_argument('--only-xml', action='store_true',
+                       help='Solo generar podcast.xml desde archivos MP3 existentes (no procesar artículos)')
 
     parser.set_defaults(skip_existing=True)
 
@@ -1311,6 +1386,33 @@ Ejemplos de uso:
             print("  pip install edge-tts --break-system-packages")
             print("\nUsando gTTS como alternativa...")
             args.tts = 'gtts'
+
+    # Si solo se quiere generar el XML, hacerlo y salir
+    if args.only_xml:
+        print("\n" + "="*60)
+        print("📻 GENERANDO FEED DESDE ARCHIVOS EXISTENTES")
+        print("="*60)
+
+        # Determinar feed_dir
+        if args.output in ['.', '']:
+            feed_dir = '.'
+        else:
+            feed_dir = os.path.dirname(args.output) or '.'
+
+        success = generate_feed_from_existing_files(
+            output_dir=args.output,
+            base_url=args.base_url,
+            feed_title=args.feed_title,
+            feed_description=args.feed_description,
+            feed_dir=feed_dir
+        )
+
+        if success:
+            print("\n✓ Feed RSS generado exitosamente")
+            return
+        else:
+            print("\n✗ Error al generar el feed")
+            return
 
     # Inicializar convertidor
     converter = ArticleToMP3Converter(
