@@ -448,8 +448,12 @@ class ArticleToMP3Converter:
 
     def sanitize_filename(self, filename):
         """Convierte un tÃƒÂ­tulo en un nombre de archivo vÃƒÂ¡lido"""
-        # Eliminar caracteres no vÃƒÂ¡lidos
+        # Eliminar emoticonos y símbolos raros (mantener solo ASCII, espacios, guiones, corchetes)
+        filename = re.sub(r'[^\x00-\x7F]+', '', filename)
+        # Eliminar caracteres no válidos para archivos
         filename = re.sub(r'[<>:"/\\|?*]', '', filename)
+        # Reemplazar múltiples espacios por uno solo
+        filename = re.sub(r'\s+', ' ', filename)
         # Limitar longitud
         filename = filename[:100]
         return filename.strip()
@@ -1146,8 +1150,12 @@ def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_des
 
         print(f"  + {filename}")
 
+        # Sanitizar título para el XML (remover emoticonos)
+        title_sanitized = re.sub(r'[^\x00-\x7F]+', '', title)
+        title_sanitized = re.sub(r'\s+', ' ', title_sanitized).strip()
+
         feed_generator.add_episode(
-            title=title,
+            title=title_sanitized,
             filepath=mp3_file,
             description=title_clean,
             category=category
