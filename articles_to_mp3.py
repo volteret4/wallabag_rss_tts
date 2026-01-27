@@ -1090,10 +1090,7 @@ class PodcastFeedGenerator:
 
         xml_str = minidom.parseString(tostring(rss, encoding='utf-8')).toprettyxml(indent="  ", encoding='utf-8')
 
-        # Guardar el XML en feed_dir (raíz) en lugar de output_dir
         output_path = os.path.join(self.feed_dir, output_file)
-
-        # Crear el directorio si no existe
         os.makedirs(self.feed_dir, exist_ok=True)
         with open(output_path, 'wb') as f:
             f.write(xml_str)
@@ -1108,24 +1105,13 @@ class PodcastFeedGenerator:
 
 
 def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_description, feed_dir=None):
-    """
-    Genera un feed RSS basándose en los archivos MP3 existentes en output_dir
+    """Genera feed RSS desde archivos MP3 existentes"""
+    import glob
 
-    Args:
-        output_dir: Directorio donde están los archivos MP3
-        base_url: URL base del podcast
-        feed_title: Título del podcast
-        feed_description: Descripción del podcast
-        feed_dir: Directorio donde guardar el XML (por defecto: padre de output_dir)
-
-    Returns:
-        bool: True si tuvo éxito, False si falló
-    """
     if not os.path.exists(output_dir):
         print(f"✗ El directorio {output_dir} no existe")
         return False
 
-    # Buscar todos los archivos MP3
     mp3_files = glob.glob(os.path.join(output_dir, "*.mp3"))
 
     if not mp3_files:
@@ -1135,7 +1121,6 @@ def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_des
     print(f"\n📁 Directorio: {output_dir}")
     print(f"✓ Encontrados {len(mp3_files)} archivos MP3")
 
-    # Crear feed generator
     feed_generator = PodcastFeedGenerator(
         output_dir=output_dir,
         base_url=base_url,
@@ -1144,20 +1129,16 @@ def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_des
         feed_dir=feed_dir
     )
 
-    # Agregar cada MP3 como episodio
     print(f"\n📝 Agregando episodios al feed...")
     for mp3_file in sorted(mp3_files, key=lambda x: os.path.getmtime(x), reverse=True):
         filename = os.path.basename(mp3_file)
-        # Extraer título del nombre del archivo (sin extensión)
         title = os.path.splitext(filename)[0]
 
-        # Intentar extraer categoría si el título tiene formato [Categoría] Título
         category = ""
         if title.startswith('[') and ']' in title:
             category_end = title.index(']')
             category = title[1:category_end]
             title_clean = title[category_end+1:].strip()
-            # Remover "- " si existe al inicio
             if title_clean.startswith('- '):
                 title_clean = title_clean[2:]
         else:
@@ -1172,7 +1153,6 @@ def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_des
             category=category
         )
 
-    # Generar el feed
     print(f"\n🎙️  Generando feed RSS...")
     feed_generator.generate_rss()
     return True
@@ -1265,7 +1245,7 @@ Ejemplos de uso:
                        help='Lista categorÃƒÂ­as y feeds de FreshRSS')
     parser.add_argument('--generate-feed', action='store_true',
                        help='Generar feed RSS/Podcast')
-    parser.add_argument('--base-url', default='http://localhost:8005',
+    parser.add_argument('--base-url', default='https://podcast.pollete.duckdns.org',
                        help='URL base para el feed RSS')
     parser.add_argument('--feed-title', default='Mis ArtÃƒÂ­culos TTS',
                        help='TÃƒÂ­tulo del podcast')
@@ -1275,7 +1255,7 @@ Ejemplos de uso:
     parser.add_argument('--mark-as-read', action='store_true',
                        help='Marcar artÃ­culos como leÃ­dos despuÃ©s de procesarlos')
     parser.add_argument('--only-xml', action='store_true',
-                       help='Solo generar podcast.xml desde archivos MP3 existentes (no procesar artículos)')
+                       help='Solo generar podcast.xml desde archivos MP3 existentes')
 
     parser.set_defaults(skip_existing=True)
 
@@ -1389,16 +1369,7 @@ Ejemplos de uso:
 
     # Si solo se quiere generar el XML, hacerlo y salir
     if args.only_xml:
-        print("\n" + "="*60)
-        print("📻 GENERANDO FEED DESDE ARCHIVOS EXISTENTES")
-        print("="*60)
-
-        # Determinar feed_dir
-        if args.output in ['.', '']:
-            feed_dir = '.'
-        else:
-            feed_dir = os.path.dirname(args.output) or '.'
-
+        feed_dir = os.path.dirname(args.output) if args.output not in ['.', ''] else '.'
         success = generate_feed_from_existing_files(
             output_dir=args.output,
             base_url=args.base_url,
@@ -1406,13 +1377,7 @@ Ejemplos de uso:
             feed_description=args.feed_description,
             feed_dir=feed_dir
         )
-
-        if success:
-            print("\n✓ Feed RSS generado exitosamente")
-            return
-        else:
-            print("\n✗ Error al generar el feed")
-            return
+        return 0 if success else 1
 
     # Inicializar convertidor
     converter = ArticleToMP3Converter(
