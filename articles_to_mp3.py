@@ -999,7 +999,7 @@ class PodcastFeedGenerator:
 
     def __init__(self, output_dir, base_url, title="Mis ArtÃƒÂ­culos TTS", description="ArtÃƒÂ­culos convertidos a audio", image_url=None, author=None, feed_dir=None):
         self.output_dir = output_dir
-        self.feed_dir = feed_dir if feed_dir is not None else os.path.dirname(output_dir) if output_dir != '.' else '.'
+        self.feed_dir = feed_dir if feed_dir is not None else (os.path.dirname(output_dir) or '.')
         self.base_url = base_url.rstrip('/')
         self.title = title
         self.description = description
@@ -1369,7 +1369,7 @@ Ejemplos de uso:
 
     # Si solo se quiere generar el XML, hacerlo y salir
     if args.only_xml:
-        feed_dir = os.path.dirname(args.output) if args.output not in ['.', ''] else '.'
+        feed_dir = os.path.dirname(args.output) or '.'
         success = generate_feed_from_existing_files(
             output_dir=args.output,
             base_url=args.base_url,
