@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-Script mejorado para convertir artÃƒÂ­culos de Wallabag y FreshRSS a MP3 usando TTS
+Script mejorado para convertir artículos de Wallabag y FreshRSS a MP3 usando TTS
 Genera feed RSS para podcasts
 Requiere: pip install gtts edge-tts requests feedparser beautifulsoup4 mutagen langdetect deep-translator --break-system-packages
+
+MEJORAS:
+- Obtiene metadata de videos de YouTube (título y duración)
+- Salta videos de más de 15 minutos automáticamente
+- Verifica existencia del archivo MP3 al inicio para evitar trabajo innecesario
 """
 
 import os
@@ -39,7 +44,7 @@ def extract_youtube_urls(html_content):
     """
     youtube_urls = []
 
-    # PatrÃ³n para URLs directas
+    # Patrón para URLs directas
     patterns = [
         r'https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
         r'https?://youtu\.be/([a-zA-Z0-9_-]+)',
@@ -57,14 +62,84 @@ def extract_youtube_urls(html_content):
     return youtube_urls
 
 
-def download_youtube_audio(url, output_dir, title_prefix="yt_audio"):
+def get_youtube_metadata(url):
+    """
+    Obtiene metadata de un video de YouTube usando yt-dlp
+
+    Returns:
+        dict: Diccionario con 'title', 'duration' (en segundos), 'url'
+              o None si falla
+    """
+    try:
+        # Comando yt-dlp para obtener metadata en formato JSON
+        cmd = [
+            'yt-dlp',
+            '--dump-json',
+            '--no-playlist',
+            '--quiet',
+            '--no-warnings',
+            url
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+        if result.returncode == 0 and result.stdout:
+            metadata = json.loads(result.stdout)
+            return {
+                'title': metadata.get('title', 'Video sin título'),
+                'duration': metadata.get('duration', 0),  # en segundos
+                'url': url
+            }
+        else:
+            print(f"  ⚠️  No se pudo obtener metadata del video")
+            return None
+
+    except subprocess.TimeoutExpired:
+        print(f"  ⚠️  Timeout al obtener metadata del video")
+        return None
+    except Exception as e:
+        print(f"  ⚠️  Error al obtener metadata: {e}")
+        return None
+
+
+def download_youtube_audio(url, output_dir, title_prefix="yt_audio", max_duration=900):
     """
     Descarga el audio de un video de YouTube usando yt-dlp
 
+    Args:
+        url: URL del video de YouTube
+        output_dir: Directorio de salida
+        title_prefix: Prefijo para el nombre del archivo
+        max_duration: Duración máxima en segundos (por defecto 900 = 15 minutos)
+
     Returns:
-        str: Ruta al archivo de audio descargado, o None si falla
+        dict: Diccionario con 'filepath', 'title', 'duration'
+              o None si falla o el video es muy largo
     """
     try:
+        # Primero obtener metadata para verificar duración
+        print(f"    📊 Obteniendo información del video...")
+        metadata = get_youtube_metadata(url)
+
+        if not metadata:
+            print(f"    ✗ No se pudo obtener información del video")
+            return None
+
+        # Verificar duración
+        duration_seconds = metadata['duration']
+        duration_minutes = duration_seconds / 60
+
+        print(f"    📹 Título: {metadata['title'][:60]}...")
+        print(f"    ⏱️  Duración: {int(duration_minutes)} min {int(duration_seconds % 60)} seg")
+
+        if duration_seconds > max_duration:
+            max_minutes = max_duration / 60
+            print(f"    ⏭️  Video demasiado largo (>{int(max_minutes)} min), saltando...")
+            return None
+
+        # Si pasa la verificación, descargar el audio
+        print(f"    ⬇️  Descargando audio...")
+
         # Crear nombre de archivo temporal
         temp_filename = os.path.join(output_dir, f"{title_prefix}_%(id)s.%(ext)s")
 
@@ -86,38 +161,41 @@ def download_youtube_audio(url, output_dir, title_prefix="yt_audio"):
 
         if result.returncode == 0:
             # Buscar el archivo descargado
-            # yt-dlp cambia el nombre del archivo, asÃ­ que buscamos archivos .mp3 recientes
-            import glob
             pattern = os.path.join(output_dir, f"{title_prefix}_*.mp3")
             files = glob.glob(pattern)
 
             if files:
-                # Ordenar por tiempo de modificaciÃ³n y tomar el mÃ¡s reciente
+                # Ordenar por tiempo de modificación y tomar el más reciente
                 latest_file = max(files, key=os.path.getmtime)
-                print(f"  âœ“ Audio de YouTube descargado: {os.path.basename(latest_file)}")
-                return latest_file
+                print(f"    ✓ Audio descargado: {os.path.basename(latest_file)}")
+
+                return {
+                    'filepath': latest_file,
+                    'title': metadata['title'],
+                    'duration': duration_seconds
+                }
             else:
-                print(f"  âœ— No se encontrÃ³ el archivo descargado")
+                print(f"    ✗ No se encontró el archivo descargado")
                 return None
         else:
-            print(f"  âœ— Error descargando audio de YouTube: {result.stderr}")
+            print(f"    ✗ Error descargando audio de YouTube: {result.stderr}")
             return None
 
     except Exception as e:
-        print(f"  âœ— Error al descargar audio de YouTube: {e}")
+        print(f"    ✗ Error al descargar audio de YouTube: {e}")
         return None
 
 
 def combine_audio_files(audio_files, output_file):
     """
-    Combina mÃºltiples archivos de audio en uno solo usando ffmpeg
+    Combina múltiples archivos de audio en uno solo usando ffmpeg
 
     Args:
         audio_files: Lista de rutas a archivos de audio (en orden)
         output_file: Ruta al archivo de salida
 
     Returns:
-        bool: True si tuvo Ã©xito, False si fallÃ³
+        bool: True si tuvo éxito, False si falló
     """
     if not audio_files:
         return False
@@ -163,37 +241,37 @@ def combine_audio_files(audio_files, output_file):
             pass
 
         if result.returncode == 0:
-            print(f"  âœ“ Audios combinados exitosamente")
+            print(f"  ✓ Audios combinados exitosamente")
             return True
         else:
-            print(f"  âœ— Error combinando audios con ffmpeg (cÃ³digo: {result.returncode})")
+            print(f"  ✗ Error combinando audios con ffmpeg (código: {result.returncode})")
             if result.stderr:
-                # Mostrar solo las Ãºltimas lÃ­neas del error
+                # Mostrar solo las últimas líneas del error
                 error_lines = result.stderr.strip().split('\n')
                 if error_lines:
-                    print(f"     Ãšltimo error: {error_lines[-1][:100]}")
+                    print(f"     Último error: {error_lines[-1][:100]}")
             return False
 
     except Exception as e:
-        print(f"  âœ— Error al combinar audios: {e}")
+        print(f"  ✗ Error al combinar audios: {e}")
         return False
 
 
 
 def add_chapters_to_mp3(mp3_file, chapters):
     """
-    AÃ±ade capÃ­tulos a un archivo MP3 usando mutagen
+    Añade capítulos a un archivo MP3 usando mutagen
 
     Args:
         mp3_file: Ruta al archivo MP3
         chapters: Lista de diccionarios con 'title', 'start_time' (en milisegundos)
                  Ejemplo: [
-                     {'title': 'Texto del artÃ­culo', 'start_time': 0},
+                     {'title': 'Texto del artículo', 'start_time': 0},
                      {'title': 'Video 1', 'start_time': 180000},  # 3 minutos
                  ]
 
     Returns:
-        bool: True si tuvo Ã©xito, False si fallÃ³
+        bool: True si tuvo éxito, False si falló
     """
     try:
         from mutagen.mp3 import MP3
@@ -206,22 +284,22 @@ def add_chapters_to_mp3(mp3_file, chapters):
         if audio.tags is None:
             audio.add_tags()
 
-        # Limpiar capÃ­tulos existentes si los hay
+        # Limpiar capítulos existentes si los hay
         for key in list(audio.tags.keys()):
             if key.startswith('CHAP') or key.startswith('CTOC'):
                 del audio.tags[key]
 
-        # Obtener duraciÃ³n total del archivo en milisegundos
+        # Obtener duración total del archivo en milisegundos
         total_duration_ms = int(audio.info.length * 1000)
 
-        # Crear frames de capÃ­tulos
+        # Crear frames de capítulos
         chapter_ids = []
         for i, chapter in enumerate(chapters):
             chapter_id = f"chp{i}"
             chapter_ids.append(chapter_id)
 
             start_time = chapter['start_time']
-            # El final es el inicio del siguiente capÃ­tulo, o el final del archivo
+            # El final es el inicio del siguiente capítulo, o el final del archivo
             if i < len(chapters) - 1:
                 end_time = chapters[i + 1]['start_time']
             else:
@@ -241,7 +319,7 @@ def add_chapters_to_mp3(mp3_file, chapters):
             )
             audio.tags.add(chap)
 
-        # Crear tabla de contenidos (CTOC) que agrupa todos los capÃ­tulos
+        # Crear tabla de contenidos (CTOC) que agrupa todos los capítulos
         ctoc = CTOC(
             encoding=3,
             element_id='toc',
@@ -256,32 +334,32 @@ def add_chapters_to_mp3(mp3_file, chapters):
         # Guardar cambios
         audio.save()
 
-        print(f"  âœ“ {len(chapters)} capÃ­tulos aÃ±adidos al archivo MP3")
+        print(f"  ✓ {len(chapters)} capítulos añadidos al archivo MP3")
         return True
 
     except Exception as e:
-        print(f"  âš ï¸  Error al aÃ±adir capÃ­tulos: {e}")
-        print(f"     (El archivo MP3 se creÃ³ correctamente, solo sin capÃ­tulos)")
+        print(f"  ⚠️  Error al añadir capítulos: {e}")
+        print(f"     (El archivo MP3 se creó correctamente, solo sin capítulos)")
         return False
 
 
 def get_audio_duration_ms(filepath):
     """
-    Obtiene la duraciÃ³n de un archivo de audio en milisegundos
+    Obtiene la duración de un archivo de audio en milisegundos
 
     Args:
         filepath: Ruta al archivo de audio
 
     Returns:
-        int: DuraciÃ³n en milisegundos, o 0 si falla
+        int: Duración en milisegundos, o 0 si falla
     """
     try:
         from mutagen.mp3 import MP3
         audio = MP3(filepath)
         return int(audio.info.length * 1000)
     except:
-        # Fallback: estimaciÃ³n basada en tamaÃ±o de archivo
-        # 1 MB â‰ˆ 60 segundos para MP3 a 128kbps
+        # Fallback: estimación basada en tamaño de archivo
+        # 1 MB ≈ 60 segundos para MP3 a 128kbps
         try:
             size_mb = os.path.getsize(filepath) / (1024 * 1024)
             return int(size_mb * 60 * 1000)
@@ -291,7 +369,7 @@ def get_audio_duration_ms(filepath):
 
 def check_dependencies():
     """
-    Verifica que yt-dlp y ffmpeg estÃ©n instalados
+    Verifica que yt-dlp y ffmpeg estén instalados
 
     Returns:
         tuple: (yt-dlp_available, ffmpeg_available)
@@ -338,12 +416,12 @@ class ArticleToMP3Converter:
         """Detecta el idioma del texto"""
         try:
             from langdetect import detect, LangDetectException
-            # Usar solo los primeros 1000 caracteres para detecciÃƒÂ³n mÃƒÂ¡s rÃƒÂ¡pida
+            # Usar solo los primeros 1000 caracteres para detección más rápida
             sample = text[:1000] if len(text) > 1000 else text
             detected = detect(sample)
             return detected
         except Exception as e:
-            print(f"Ã¢Å¡Â  Error al detectar idioma: {e}")
+            print(f"⚠️  Error al detectar idioma: {e}")
             return None
 
     def translate_text(self, text, source_lang, target_lang):
@@ -351,36 +429,36 @@ class ArticleToMP3Converter:
         try:
             from deep_translator import GoogleTranslator
 
-            print(f"Ã°Å¸â€â€ž Traduciendo de {source_lang} a {target_lang}...")
+            print(f"🌐 Traduciendo de {source_lang} a {target_lang}...")
 
-            # LÃƒÂ­mite de 4900 caracteres por consulta (margen de seguridad)
+            # Límite de 4900 caracteres por consulta (margen de seguridad)
             max_length_per_chunk = 4900
             max_chunks = 4  # Hasta 4 consultas
-            max_total_length = max_length_per_chunk * max_chunks  # 19600 caracteres mÃƒÂ¡ximo
+            max_total_length = max_length_per_chunk * max_chunks  # 19600 caracteres máximo
 
             original_length = len(text)
 
             # Si el texto es muy largo, truncar
             if original_length > max_total_length:
-                print(f"Ã¢Å¡Â  Texto muy largo ({original_length} caracteres), truncando a {max_total_length}...")
+                print(f"⚠️  Texto muy largo ({original_length} caracteres), truncando a {max_total_length}...")
                 text = text[:max_total_length]
                 original_length = len(text)
 
-            # Calcular nÃƒÂºmero de chunks necesarios
+            # Calcular número de chunks necesarios
             num_chunks = (original_length + max_length_per_chunk - 1) // max_length_per_chunk
 
             translator = GoogleTranslator(source=source_lang, target=target_lang)
 
             # Si cabe en una sola consulta
             if num_chunks == 1:
-                print(f"Ã°Å¸â€œÂ Traduciendo en 1 consulta ({original_length} caracteres)...")
+                print(f"📝 Traduciendo en 1 consulta ({original_length} caracteres)...")
                 translated = translator.translate(text)
-                print(f"Ã¢Å“â€œ TraducciÃƒÂ³n completada ({len(translated)} caracteres)")
+                print(f"✓ Traducción completada ({len(translated)} caracteres)")
                 return translated
 
-            # Si necesita mÃƒÂºltiples consultas
+            # Si necesita múltiples consultas
             else:
-                print(f"Ã°Å¸â€œÂ Traduciendo en {num_chunks} consultas ({original_length} caracteres totales)...")
+                print(f"📝 Traduciendo en {num_chunks} consultas ({original_length} caracteres totales)...")
 
                 chunks = []
                 chunk_size = original_length // num_chunks
@@ -388,7 +466,7 @@ class ArticleToMP3Converter:
                 # Dividir el texto en chunks
                 for i in range(num_chunks):
                     if i == num_chunks - 1:
-                        # ÃƒÅ¡ltimo chunk: tomar todo lo que queda
+                        # Último chunk: tomar todo lo que queda
                         chunk_start = i * chunk_size
                         chunk = text[chunk_start:].strip()
                     else:
@@ -396,7 +474,7 @@ class ArticleToMP3Converter:
                         chunk_start = i * chunk_size
                         chunk_end = (i + 1) * chunk_size
 
-                        # Buscar un buen punto de corte (espacio, salto de lÃƒÂ­nea o punto)
+                        # Buscar un buen punto de corte (espacio, salto de línea o punto)
                         search_range = 100
                         best_cut = chunk_end
 
@@ -420,11 +498,11 @@ class ArticleToMP3Converter:
                 # Unir las traducciones con un espacio
                 translated = " ".join(translated_chunks)
 
-                print(f"Ã¢Å“â€œ TraducciÃƒÂ³n completada ({len(translated)} caracteres)")
+                print(f"✓ Traducción completada ({len(translated)} caracteres)")
                 return translated
 
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al traducir: {e}")
+            print(f"✗ Error al traducir: {e}")
             print("  Usando texto original sin traducir")
             return text
 
@@ -447,7 +525,7 @@ class ArticleToMP3Converter:
         return text
 
     def sanitize_filename(self, filename):
-        """Convierte un tÃƒÂ­tulo en un nombre de archivo vÃƒÂ¡lido"""
+        """Convierte un título en un nombre de archivo válido"""
         # Eliminar emoticonos y símbolos raros (mantener solo ASCII, espacios, guiones, corchetes)
         filename = re.sub(r'[^\x00-\x7F]+', '', filename)
         # Eliminar caracteres no válidos para archivos
@@ -467,7 +545,7 @@ class ArticleToMP3Converter:
             await communicate.save(filepath)
             return True
         except Exception as e:
-            print(f"Ã¢Å“â€” Error con edge-tts: {e}")
+            print(f"✗ Error con edge-tts: {e}")
             return False
 
     def text_to_mp3_gtts(self, text, filepath, lang='es'):
@@ -477,7 +555,7 @@ class ArticleToMP3Converter:
             tts.save(filepath)
             return True
         except Exception as e:
-            print(f"Ã¢Å“â€” Error con gTTS: {e}")
+            print(f"✗ Error con gTTS: {e}")
             return False
 
     def process_and_convert(self, text, title, original_language=None, lang='es'):
@@ -486,27 +564,27 @@ class ArticleToMP3Converter:
 
         Args:
             text: Texto a convertir
-            title: TÃƒÂ­tulo del artÃƒÂ­culo
+            title: Título del artículo
             original_language: Idioma original especificado en config (opcional)
             lang: Idioma para gTTS
         """
-        # Detectar idioma si no se especificÃƒÂ³
+        # Detectar idioma si no se especificó
         if self.target_language:
             detected_lang = original_language or self.detect_language(text)
 
             if detected_lang:
-                print(f"Ã°Å¸â€œÂ Idioma detectado: {detected_lang}")
+                print(f"🔤 Idioma detectado: {detected_lang}")
 
-                # Normalizar cÃƒÂ³digos de idioma (en-us -> en, es-es -> es, etc.)
+                # Normalizar códigos de idioma (en-us -> en, es-es -> es, etc.)
                 detected_lang_short = detected_lang.split('-')[0].lower()
                 target_lang_short = self.target_language.split('-')[0].lower()
 
                 # Traducir si es necesario
                 if detected_lang_short != target_lang_short:
-                    print(f"Ã°Å¸Å’Â TraducciÃƒÂ³n necesaria: {detected_lang_short} Ã¢â€ â€™ {target_lang_short}")
+                    print(f"🔄 Traducción necesaria: {detected_lang_short} → {target_lang_short}")
                     text = self.translate_text(text, detected_lang_short, target_lang_short)
                 else:
-                    print(f"Ã¢Å“â€œ Sin traducciÃƒÂ³n necesaria (ya estÃƒÂ¡ en {target_lang_short})")
+                    print(f"✓ Sin traducción necesaria (ya está en {target_lang_short})")
 
         # Convertir a MP3
         return self.text_to_mp3(text, title, lang)
@@ -520,70 +598,93 @@ class ArticleToMP3Converter:
             # Comprobar si el archivo ya existe
             if os.path.exists(filepath):
                 if self.skip_existing:
-                    print(f"Ã¢Å â„¢ Ya existe (omitiendo): {filename}.mp3")
+                    print(f"⏭ Ya existe (omitiendo): {filename}.mp3")
                     return filepath
                 else:
                     # Si no se quiere omitir, crear con timestamp
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
-                    print(f"Ã¢Å¡Â  Archivo existe, creando nueva versiÃƒÂ³n: {filename}_{timestamp}.mp3")
+                    print(f"⚠️  Archivo existe, creando nueva versión: {filename}_{timestamp}.mp3")
 
             print(f"Generando audio ({self.tts_engine}): {filename}.mp3")
 
             success = False
             if self.tts_engine == "edge":
-                # edge-tts es asÃƒÂ­ncrono, usar asyncio
+                # edge-tts es asíncrono, usar asyncio
                 success = asyncio.run(self.text_to_mp3_edge(text, filepath))
             elif self.tts_engine == "gtts":
                 success = self.text_to_mp3_gtts(text, filepath, lang)
 
             if success:
-                print(f"Ã¢Å“â€œ Guardado: {filepath}")
+                print(f"✓ Guardado: {filepath}")
                 return filepath
             else:
-                print(f"Ã¢Å“â€” Error al generar audio para '{title}'")
+                print(f"✗ Error al generar audio para '{title}'")
                 return None
 
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al generar audio para '{title}': {e}")
+            print(f"✗ Error al generar audio para '{title}': {e}")
             return None
 
 
 
     def process_and_convert_with_youtube(self, text, html_content, title, original_language=None, lang='es'):
         """
-        Procesa artÃ­culo con texto y videos de YouTube, creando un MP3 combinado
+        Procesa artículo con texto y videos de YouTube, creando un MP3 combinado
+
+        MEJORAS:
+        - Verifica existencia del archivo MP3 al inicio para evitar trabajo innecesario
+        - Obtiene metadata de cada video (título y duración)
+        - Salta automáticamente videos de más de 15 minutos
+        - Usa títulos reales de los videos en los capítulos
 
         Args:
-            text: Texto limpio del artÃ­culo (ya procesado con clean_text)
+            text: Texto limpio del artículo (ya procesado con clean_text)
             html_content: Contenido HTML original (para extraer URLs de YouTube)
-            title: TÃ­tulo del artÃ­culo
+            title: Título del artículo
             original_language: Idioma original especificado en config (opcional)
             lang: Idioma para gTTS
 
         Returns:
             str: Ruta al archivo MP3 final, o None si falla
         """
-        print(f"\nðŸŽ¬ Procesando artÃ­culo con contenido de YouTube: {title}")
+        print(f"\n🎬 Procesando artículo con contenido de YouTube: {title}")
+
+        # ===================================================================
+        # MEJORA 1: Verificar si el archivo ya existe ANTES de procesar
+        # ===================================================================
+        filename = self.sanitize_filename(title)
+        filepath = os.path.join(self.output_dir, f"{filename}.mp3")
+
+        if os.path.exists(filepath):
+            if self.skip_existing:
+                print(f"  ⏭️ Ya existe (omitiendo todo el procesamiento): {filename}.mp3")
+                return filepath
+            else:
+                # Si no se quiere omitir, crear con timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
+                print(f"  ⚠️  Archivo existe, se creará nueva versión: {filename}_{timestamp}.mp3")
 
         # 1. Extraer URLs de YouTube
         youtube_urls = extract_youtube_urls(html_content)
 
         if not youtube_urls:
-            print(f"  â„¹ï¸  No se encontraron videos de YouTube, procesando como artÃ­culo normal")
+            print(f"  ℹ️  No se encontraron videos de YouTube, procesando como artículo normal")
             return self.process_and_convert(text, title, original_language, lang)
 
-        print(f"  ðŸ“º Encontrados {len(youtube_urls)} videos de YouTube")
+        print(f"  📺 Encontrados {len(youtube_urls)} videos de YouTube")
         for i, url in enumerate(youtube_urls, 1):
             print(f"    {i}. {url}")
 
         # Crear directorio temporal para archivos intermedios
         temp_dir = tempfile.mkdtemp(prefix="article_youtube_")
         audio_parts = []
+        video_metadata = []  # MEJORA 2: Guardar metadata de cada video
 
         try:
             # 2. Generar TTS del texto
-            print(f"  ðŸ”Š Generando audio del texto...")
+            print(f"  🔊 Generando audio del texto...")
 
             # Detectar idioma y traducir si es necesario
             if self.target_language:
@@ -607,85 +708,104 @@ class ArticleToMP3Converter:
 
             if success and os.path.exists(tts_file):
                 audio_parts.append(tts_file)
-                print(f"  âœ“ Audio del texto generado")
+                print(f"  ✓ Audio del texto generado")
             else:
-                print(f"  âœ— Error al generar audio del texto")
+                print(f"  ✗ Error al generar audio del texto")
 
-            # 3. Descargar audio de videos de YouTube
-            print(f"  ðŸ“¥ Descargando audio de videos de YouTube...")
+            # ===================================================================
+            # MEJORA 2 y 3: Descargar audio de videos con metadata y filtrado
+            # ===================================================================
+            print(f"  📥 Descargando audio de videos de YouTube...")
+            videos_procesados = 0
+            videos_saltados = 0
+
             for i, url in enumerate(youtube_urls, 1):
-                print(f"    Descargando video {i}/{len(youtube_urls)}...")
-                yt_audio = download_youtube_audio(url, temp_dir, f"yt_{i}")
-                if yt_audio and os.path.exists(yt_audio):
-                    audio_parts.append(yt_audio)
+                print(f"\n  Video {i}/{len(youtube_urls)}:")
+
+                # download_youtube_audio ahora devuelve dict con filepath, title, duration
+                # y automáticamente salta videos de más de 15 minutos
+                result = download_youtube_audio(url, temp_dir, f"yt_{i}", max_duration=900)
+
+                if result and result.get('filepath') and os.path.exists(result['filepath']):
+                    audio_parts.append(result['filepath'])
+                    video_metadata.append({
+                        'title': result['title'],
+                        'duration': result['duration']
+                    })
+                    videos_procesados += 1
                 else:
-                    print(f"    âš ï¸  No se pudo descargar el audio del video {i}")
+                    if result is None:
+                        videos_saltados += 1
+                    print(f"    ⚠️  No se pudo procesar el video {i}")
+
+            print(f"\n  📊 Resumen: {videos_procesados} videos descargados, {videos_saltados} saltados (>15 min)")
 
             if len(audio_parts) == 0:
-                print(f"  âœ— No se generÃ³ ningÃºn audio")
+                print(f"  ✗ No se generó ningún audio")
                 return None
 
-            # 4. Preparar informaciÃ³n de capÃ­tulos
-            print(f"  ðŸ“‘ Preparando informaciÃ³n de capÃ­tulos...")
+            # ===================================================================
+            # MEJORA 2: Preparar capítulos con títulos reales de los videos
+            # ===================================================================
+            print(f"  📑 Preparando información de capítulos...")
             chapters = []
             current_time_ms = 0
 
-            # CapÃ­tulo 1: Texto del artÃ­culo
+            # Capítulo 1: Texto del artículo
             chapters.append({
-                'title': 'Texto del artÃ­culo',
+                'title': 'Texto del artículo',
                 'start_time': current_time_ms
             })
 
-            # Obtener duraciÃ³n del audio TTS
+            # Obtener duración del audio TTS
             if len(audio_parts) > 0:
                 tts_duration_ms = get_audio_duration_ms(audio_parts[0])
                 current_time_ms += tts_duration_ms
 
-            # CapÃ­tulos para cada video de YouTube
-            for i in range(1, len(audio_parts)):
-                video_num = i
+            # Capítulos para cada video de YouTube con su título real
+            for i in range(len(video_metadata)):
+                video_title = video_metadata[i]['title']
+
+                # Limpiar título para que no sea demasiado largo
+                if len(video_title) > 60:
+                    video_title = video_title[:57] + "..."
+
                 chapters.append({
-                    'title': f'Video {video_num}',
+                    'title': video_title,
                     'start_time': current_time_ms
                 })
 
-                # Obtener duraciÃ³n de este video
-                video_duration_ms = get_audio_duration_ms(audio_parts[i])
+                # Obtener duración de este video (índice i+1 porque audio_parts[0] es el TTS)
+                video_duration_ms = get_audio_duration_ms(audio_parts[i + 1])
                 current_time_ms += video_duration_ms
 
             # 5. Combinar todos los audios
-            print(f"  ðŸ”— Combinando {len(audio_parts)} archivos de audio...")
-
-            # Crear nombre de archivo final
-            filename = self.sanitize_filename(title)
-            filepath = os.path.join(self.output_dir, f"{filename}.mp3")
-
-            # Comprobar si el archivo ya existe
-            if os.path.exists(filepath):
-                if self.skip_existing:
-                    print(f"  âŠ™ Ya existe (omitiendo): {filename}.mp3")
-                    return filepath
-                else:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filepath = os.path.join(self.output_dir, f"{filename}_{timestamp}.mp3")
+            print(f"  🔗 Combinando {len(audio_parts)} archivos de audio...")
 
             # Combinar archivos
             if combine_audio_files(audio_parts, filepath):
-                print(f"  âœ“ Archivo final creado: {os.path.basename(filepath)}")
-                print(f"  ðŸ“Š Componentes: 1 TTS + {len(youtube_urls)} video(s) de YouTube")
+                print(f"  ✓ Archivo final creado: {os.path.basename(filepath)}")
+                print(f"  📊 Componentes: 1 TTS + {len(video_metadata)} video(s) de YouTube")
 
-                # 6. AÃ±adir capÃ­tulos al archivo MP3
+                # 6. Añadir capítulos al archivo MP3 con títulos reales
                 if len(chapters) > 1:
-                    print(f"  ðŸ“– AÃ±adiendo {len(chapters)} capÃ­tulos al MP3...")
+                    print(f"  📖 Añadiendo {len(chapters)} capítulos al MP3...")
+                    print(f"     Capítulos:")
+                    for i, ch in enumerate(chapters):
+                        mins = ch['start_time'] // 60000
+                        secs = (ch['start_time'] % 60000) // 1000
+                        print(f"       {i+1}. [{mins:02d}:{secs:02d}] {ch['title']}")
                     add_chapters_to_mp3(filepath, chapters)
 
                 return filepath
             else:
-                print(f"  âœ— Error al combinar archivos de audio")
+                print(f"  ✗ Error al combinar archivos de audio")
                 return None
 
         except Exception as e:
-            print(f"  âœ— Error procesando artÃ­culo con YouTube: {e}")
+            print(f"  ✗ Error procesando artículo con YouTube: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
         finally:
@@ -721,14 +841,14 @@ class WallabagClient:
             response = requests.post(auth_url, data=data)
             response.raise_for_status()
             self.token = response.json()['access_token']
-            print("Ã¢Å“â€œ Autenticado en Wallabag")
+            print("✓ Autenticado en Wallabag")
             return True
         except Exception as e:
-            print(f"Ã¢Å“â€” Error de autenticaciÃƒÂ³n en Wallabag: {e}")
+            print(f"✗ Error de autenticación en Wallabag: {e}")
             return False
 
     def get_articles(self, archive=0, limit=10):
-        """Obtiene artÃƒÂ­culos de Wallabag"""
+        """Obtiene artículos de Wallabag"""
         if not self.token:
             if not self.authenticate():
                 return []
@@ -749,16 +869,16 @@ class WallabagClient:
             )
             response.raise_for_status()
             articles = response.json()['_embedded']['items']
-            print(f"Ã¢Å“â€œ Obtenidos {len(articles)} artÃƒÂ­culos de Wallabag")
+            print(f"✓ Obtenidos {len(articles)} artículos de Wallabag")
             return articles
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al obtener artÃƒÂ­culos de Wallabag: {e}")
+            print(f"✗ Error al obtener artículos de Wallabag: {e}")
             return []
 
 
 
     def get_article(self, article_id):
-        """Obtiene un artÃ­culo especÃ­fico de Wallabag"""
+        """Obtiene un artículo específico de Wallabag"""
         if not self.token:
             if not self.authenticate():
                 return None
@@ -773,11 +893,11 @@ class WallabagClient:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"âœ— Error al obtener artÃ­culo {article_id}: {e}")
+            print(f"✗ Error al obtener artículo {article_id}: {e}")
             return None
 
     def mark_as_read(self, article_id):
-        """Marca un artÃ­culo como leÃ­do (archivado) en Wallabag"""
+        """Marca un artículo como leído (archivado) en Wallabag"""
         if not self.token:
             if not self.authenticate():
                 return False
@@ -787,7 +907,7 @@ class WallabagClient:
             'Content-Type': 'application/json'
         }
 
-        # En Wallabag, marcar como leÃ­do = archivar el artÃ­culo
+        # En Wallabag, marcar como leído = archivar el artículo
         data = {'archive': 1}
 
         try:
@@ -801,14 +921,14 @@ class WallabagClient:
             # Verificar respuesta
             result = response.json()
             if result.get('is_archived') == 1 or result.get('is_archived') == True:
-                print(f"  âœ“ Marcado como leÃ­do en Wallabag (ID: {article_id})")
+                print(f"  ✓ Marcado como leído en Wallabag (ID: {article_id})")
                 return True
             else:
-                print(f"  âš ï¸  Respuesta inesperada al marcar como leÃ­do")
+                print(f"  ⚠️  Respuesta inesperada al marcar como leído")
                 return False
 
         except Exception as e:
-            print(f"  âœ— Error al marcar como leÃ­do (ID: {article_id}): {e}")
+            print(f"  ✗ Error al marcar como leído (ID: {article_id}): {e}")
             return False
 
 
@@ -820,7 +940,7 @@ class FreshRSSClient:
         self.auth_token = None
 
     def authenticate(self):
-        """AutenticaciÃƒÂ³n usando Google Reader API de FreshRSS"""
+        """Autenticación usando Google Reader API de FreshRSS"""
         login_url = f"{self.url}/api/greader.php/accounts/ClientLogin"
 
         data = {
@@ -835,18 +955,18 @@ class FreshRSSClient:
             for line in response.text.strip().split('\n'):
                 if line.startswith('Auth='):
                     self.auth_token = line.split('=', 1)[1]
-                    print(f"Ã¢Å“â€œ Autenticado en FreshRSS")
+                    print(f"✓ Autenticado en FreshRSS")
                     return True
 
-            print("Ã¢Å“â€” No se encontrÃƒÂ³ el token de autenticaciÃƒÂ³n")
+            print("✗ No se encontró el token de autenticación")
             return False
 
         except Exception as e:
-            print(f"Ã¢Å“â€” Error de autenticaciÃƒÂ³n en FreshRSS: {e}")
+            print(f"✗ Error de autenticación en FreshRSS: {e}")
             return False
 
     def list_categories(self):
-        """Lista todas las categorÃƒÂ­as/tags disponibles"""
+        """Lista todas las categorías/tags disponibles"""
         if not self.auth_token:
             if not self.authenticate():
                 return []
@@ -863,7 +983,7 @@ class FreshRSSClient:
             categories = []
             for tag in data.get('tags', []):
                 tag_id = tag.get('id', '')
-                # Filtrar solo las categorÃƒÂ­as (labels)
+                # Filtrar solo las categorías (labels)
                 if '/label/' in tag_id:
                     category_name = tag_id.split('/label/')[-1]
                     categories.append({
@@ -873,7 +993,7 @@ class FreshRSSClient:
 
             return categories
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al listar categorÃƒÂ­as: {e}")
+            print(f"✗ Error al listar categorías: {e}")
             return []
 
     def list_feeds(self):
@@ -902,17 +1022,17 @@ class FreshRSSClient:
 
             return feeds
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al listar feeds: {e}")
+            print(f"✗ Error al listar feeds: {e}")
             return []
 
     def get_articles(self, stream_id=None, limit=10, unread_only=True):
         """
-        Obtiene artÃƒÂ­culos de FreshRSS
+        Obtiene artículos de FreshRSS
 
         stream_id puede ser:
-        - None o 'reading-list': todos los artÃƒÂ­culos
-        - 'user/-/label/CATEGORIA': artÃƒÂ­culos de una categorÃƒÂ­a
-        - 'feed/FEED_ID': artÃƒÂ­culos de un feed especÃƒÂ­fico
+        - None o 'reading-list': todos los artículos
+        - 'user/-/label/CATEGORIA': artículos de una categoría
+        - 'feed/FEED_ID': artículos de un feed específico
         """
         if not self.auth_token:
             if not self.authenticate():
@@ -923,10 +1043,10 @@ class FreshRSSClient:
             if stream_id == 'reading-list':
                 stream_path = 'reading-list'
             elif stream_id.startswith('user/-/label/'):
-                # CategorÃƒÂ­a especÃƒÂ­fica
+                # Categoría específica
                 stream_path = f"contents/{stream_id}"
             elif stream_id.startswith('feed/'):
-                # Feed especÃƒÂ­fico
+                # Feed específico
                 stream_path = f"contents/{stream_id}"
             else:
                 stream_path = f"contents/{stream_id}"
@@ -953,11 +1073,11 @@ class FreshRSSClient:
             return articles
 
         except Exception as e:
-            print(f"Ã¢Å“â€” Error al obtener artÃƒÂ­culos: {e}")
+            print(f"✗ Error al obtener artículos: {e}")
             return []
 
     def mark_as_read(self, article_id):
-        """Marca un artÃ­culo como leÃ­do en FreshRSS"""
+        """Marca un artículo como leído en FreshRSS"""
         if not self.auth_token:
             if not self.authenticate():
                 return False
@@ -979,21 +1099,21 @@ class FreshRSSClient:
             response = requests.post(url, headers=headers, data=data)
             response.raise_for_status()
 
-            # La API de Google Reader devuelve "OK" en texto plano si tuvo Ã©xito
+            # La API de Google Reader devuelve "OK" en texto plano si tuvo éxito
             if response.text.strip().upper() == 'OK':
-                print(f"  âœ“ Marcado como leÃ­do en FreshRSS (ID: {article_id})")
+                print(f"  ✓ Marcado como leído en FreshRSS (ID: {article_id})")
                 return True
             else:
-                print(f"  âš ï¸  Respuesta inesperada de FreshRSS: {response.text[:100]}")
-                # AÃºn asÃ­ considerarlo exitoso si no hubo error HTTP
+                print(f"  ⚠️  Respuesta inesperada de FreshRSS: {response.text[:100]}")
+                # Aún así considerarlo exitoso si no hubo error HTTP
                 return True
 
         except requests.exceptions.HTTPError as e:
-            print(f"  âœ— Error HTTP al marcar como leÃ­do en FreshRSS: {e}")
+            print(f"  ✗ Error HTTP al marcar como leído en FreshRSS: {e}")
             print(f"     Respuesta del servidor: {e.response.text[:200] if e.response else 'N/A'}")
             return False
         except Exception as e:
-            print(f"  âœ— Error al marcar como leÃ­do en FreshRSS: {e}")
+            print(f"  ✗ Error al marcar como leído en FreshRSS: {e}")
             return False
 
 
@@ -1001,7 +1121,7 @@ class FreshRSSClient:
 class PodcastFeedGenerator:
     """Genera un feed RSS/Podcast simple"""
 
-    def __init__(self, output_dir, base_url, title="Mis ArtÃƒÂ­culos TTS", description="ArtÃƒÂ­culos convertidos a audio", image_url=None, author=None, feed_dir=None):
+    def __init__(self, output_dir, base_url, title="Mis Artículos TTS", description="Artículos convertidos a audio", image_url=None, author=None, feed_dir=None):
         self.output_dir = output_dir
         self.feed_dir = feed_dir if feed_dir is not None else (os.path.dirname(output_dir) or '.')
         self.base_url = base_url.rstrip('/')
@@ -1012,25 +1132,25 @@ class PodcastFeedGenerator:
         self.episodes = []
 
     def get_file_size(self, filepath):
-        """Obtiene el tamaÃƒÂ±o del archivo en bytes"""
+        """Obtiene el tamaño del archivo en bytes"""
         try:
             return os.path.getsize(filepath)
         except:
             return 0
 
     def get_audio_duration(self, filepath):
-        """Intenta obtener la duraciÃƒÂ³n del audio"""
+        """Intenta obtener la duración del audio"""
         try:
             from mutagen.mp3 import MP3
             audio = MP3(filepath)
             return int(audio.info.length)
         except:
-            # EstimaciÃƒÂ³n basada en tamaÃƒÂ±o (1 MB Ã¢â€°Ë† 60 segundos)
+            # Estimación basada en tamaño (1 MB ≈ 60 segundos)
             size_mb = self.get_file_size(filepath) / (1024 * 1024)
             return int(size_mb * 60)
 
     def add_episode(self, title, filepath, description="", category=""):
-        """AÃƒÂ±ade un episodio al feed"""
+        """Añade un episodio al feed"""
         if not os.path.exists(filepath):
             return
 
@@ -1063,11 +1183,11 @@ class PodcastFeedGenerator:
         SubElement(channel, 'language').text = 'es'
         SubElement(channel, 'lastBuildDate').text = datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')
 
-        # AÃƒÂ±adir autor si estÃƒÂ¡ disponible
+        # Añadir autor si está disponible
         if self.author:
             SubElement(channel, 'itunes:author').text = self.author
 
-        # AÃƒÂ±adir imagen si estÃƒÂ¡ disponible
+        # Añadir imagen si está disponible
         if self.image_url:
             SubElement(channel, 'itunes:image', {'href': self.image_url})
             image_elem = SubElement(channel, 'image')
@@ -1075,7 +1195,7 @@ class PodcastFeedGenerator:
             SubElement(image_elem, 'title').text = self.title
             SubElement(image_elem, 'link').text = self.base_url
 
-        # Ordenar episodios por fecha (mÃƒÂ¡s reciente primero)
+        # Ordenar episodios por fecha (más reciente primero)
         sorted_episodes = sorted(self.episodes, key=lambda x: x['pubDate'], reverse=True)
 
         for episode in sorted_episodes:
@@ -1099,9 +1219,9 @@ class PodcastFeedGenerator:
         with open(output_path, 'wb') as f:
             f.write(xml_str)
 
-        print(f"\nÃ¢Å“â€œ Feed RSS generado: {output_path}")
-        print(f"Ã¢Å“â€œ URL del feed: {self.base_url}/{output_file}")
-        print(f"Ã¢Å“â€œ Episodios: {len(self.episodes)}")
+        print(f"\n✓ Feed RSS generado: {output_path}")
+        print(f"✓ URL del feed: {self.base_url}/{output_file}")
+        print(f"✓ Episodios: {len(self.episodes)}")
 
         return output_path
 
@@ -1161,7 +1281,7 @@ def generate_feed_from_existing_files(output_dir, base_url, feed_title, feed_des
             category=category
         )
 
-    print(f"\n🎙️  Generando feed RSS...")
+    print(f"\n🎙️ Generando feed RSS...")
     feed_generator.generate_rss()
     return True
 
@@ -1171,20 +1291,20 @@ def print_available_voices():
     try:
         import edge_tts
         print("\n=== Voces disponibles para edge-tts ===")
-        print("\nEspaÃƒÂ±ol:")
+        print("\nEspañol:")
         spanish_voices = [
-            "es-ES-AlvaroNeural (Hombre, EspaÃƒÂ±a)",
-            "es-ES-ElviraNeural (Mujer, EspaÃƒÂ±a)",
-            "es-ES-AbrilNeural (Mujer, EspaÃƒÂ±a)",
-            "es-MX-DaliaNeural (Mujer, MÃƒÂ©xico)",
-            "es-MX-JorgeNeural (Hombre, MÃƒÂ©xico)",
+            "es-ES-AlvaroNeural (Hombre, España)",
+            "es-ES-ElviraNeural (Mujer, España)",
+            "es-ES-AbrilNeural (Mujer, España)",
+            "es-MX-DaliaNeural (Mujer, México)",
+            "es-MX-JorgeNeural (Hombre, México)",
             "es-AR-ElenaNeural (Mujer, Argentina)",
             "es-AR-TomasNeural (Hombre, Argentina)",
         ]
         for voice in spanish_voices:
             print(f"  - {voice}")
 
-        print("\nInglÃƒÂ©s:")
+        print("\nInglés:")
         english_voices = [
             "en-US-AriaNeural (Mujer, US)",
             "en-US-GuyNeural (Hombre, US)",
@@ -1198,22 +1318,22 @@ def print_available_voices():
         print("  edge-tts --list-voices")
 
     except ImportError:
-        print("edge-tts no estÃƒÂ¡ instalado. InstÃƒÂ¡lalo con: pip install edge-tts")
+        print("edge-tts no está instalado. Instálalo con: pip install edge-tts")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Convierte artÃƒÂ­culos de Wallabag y FreshRSS a MP3 con TTS mejorado',
+        description='Convierte artículos de Wallabag y FreshRSS a MP3 con TTS mejorado',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Ejemplos de uso:
   # Usar edge-tts (mejor calidad)
   python3 articles_to_mp3.py --tts edge
 
-  # Usar edge-tts con voz especÃƒÂ­fica
+  # Usar edge-tts con voz específica
   python3 articles_to_mp3.py --tts edge --voice es-ES-ElviraNeural
 
-  # Traducir al espaÃƒÂ±ol automÃƒÂ¡ticamente
+  # Traducir al español automáticamente
   python3 articles_to_mp3.py --language es
 
   # No omitir archivos existentes
@@ -1222,21 +1342,21 @@ Ejemplos de uso:
   # Ver voces disponibles
   python3 articles_to_mp3.py --list-voices
 
-  # Listar categorÃƒÂ­as y feeds de FreshRSS
+  # Listar categorías y feeds de FreshRSS
   python3 articles_to_mp3.py --freshrss-list
         """
     )
 
     parser.add_argument('--config', default='config.json',
-                       help='Archivo de configuraciÃƒÂ³n JSON')
+                       help='Archivo de configuración JSON')
     parser.add_argument('--output', default='audio_articles',
                        help='Directorio de salida para los MP3')
     parser.add_argument('--limit', type=int, default=10,
-                       help='NÃƒÂºmero mÃƒÂ¡ximo de artÃƒÂ­culos (si no se especifica en config)')
+                       help='Número máximo de artículos (si no se especifica en config)')
     parser.add_argument('--lang', default='es',
                        help='Idioma para gTTS (es, en, fr, etc.)')
     parser.add_argument('--source', choices=['wallabag', 'freshrss', 'both'],
-                       default='both', help='Fuente de artÃƒÂ­culos')
+                       default='both', help='Fuente de artículos')
     parser.add_argument('--tts', choices=['gtts', 'edge'],
                        default='gtts', help='Motor TTS a usar (gtts = estable, edge = mejor calidad)')
     parser.add_argument('--voice', default='es-ES-AlvaroNeural',
@@ -1246,22 +1366,22 @@ Ejemplos de uso:
     parser.add_argument('--no-skip-existing', dest='skip_existing', action='store_false',
                        help='No omitir archivos existentes, crear versiones con timestamp')
     parser.add_argument('--language', choices=['es', 'en', 'fr', 'de', 'it', 'pt'],
-                       help='Idioma destino para traducciÃƒÂ³n automÃƒÂ¡tica (es, en, fr, de, it, pt). Si se especifica, se detectarÃƒÂ¡ el idioma del artÃƒÂ­culo y se traducirÃƒÂ¡ si es necesario')
+                       help='Idioma destino para traducción automática (es, en, fr, de, it, pt). Si se especifica, se detectará el idioma del artículo y se traducirá si es necesario')
     parser.add_argument('--list-voices', action='store_true',
                        help='Muestra las voces disponibles para edge-tts')
     parser.add_argument('--freshrss-list', action='store_true',
-                       help='Lista categorÃƒÂ­as y feeds de FreshRSS')
+                       help='Lista categorías y feeds de FreshRSS')
     parser.add_argument('--generate-feed', action='store_true',
                        help='Generar feed RSS/Podcast')
     parser.add_argument('--base-url', default='https://podcast.example.org',
                        help='URL base para el feed RSS')
-    parser.add_argument('--feed-title', default='Mis ArtÃƒÂ­culos TTS',
-                       help='TÃƒÂ­tulo del podcast')
-    parser.add_argument('--feed-description', default='ArtÃƒÂ­culos convertidos a audio',
-                       help='DescripciÃƒÂ³n del podcast')
+    parser.add_argument('--feed-title', default='Mis Artículos TTS',
+                       help='Título del podcast')
+    parser.add_argument('--feed-description', default='Artículos convertidos a audio',
+                       help='Descripción del podcast')
 
     parser.add_argument('--mark-as-read', action='store_true',
-                       help='Marcar artÃ­culos como leÃ­dos despuÃ©s de procesarlos')
+                       help='Marcar artículos como leídos después de procesarlos')
     parser.add_argument('--only-xml', action='store_true',
                        help='Solo generar podcast.xml desde archivos MP3 existentes')
 
@@ -1276,7 +1396,7 @@ Ejemplos de uso:
         with open(args.config, 'r') as f:
             config_preview = json.load(f)
 
-        # Verificar si hay feeds o categorÃ­as con include_youtube
+        # Verificar si hay feeds o categorías con include_youtube
         if 'freshrss' in config_preview:
             for feed in config_preview['freshrss'].get('feeds', []):
                 if feed.get('include_youtube', False):
@@ -1294,34 +1414,34 @@ Ejemplos de uso:
             yt_dlp_ok, ffmpeg_ok = check_dependencies()
 
             if not yt_dlp_ok or not ffmpeg_ok:
-                print("\nâš ï¸  ADVERTENCIA: Funcionalidad de YouTube habilitada pero faltan dependencias:")
+                print("\n⚠️  ADVERTENCIA: Funcionalidad de YouTube habilitada pero faltan dependencias:")
                 if not yt_dlp_ok:
-                    print("  âœ— yt-dlp no estÃ¡ instalado")
+                    print("  ✗ yt-dlp no está instalado")
                     print("    Instala con: pip install yt-dlp --break-system-packages")
                     print("    O en Ubuntu: sudo apt install yt-dlp")
                 if not ffmpeg_ok:
-                    print("  âœ— ffmpeg no estÃ¡ instalado")
+                    print("  ✗ ffmpeg no está instalado")
                     print("    Instala con: sudo apt install ffmpeg")
-                print("\n  Los artÃ­culos con videos de YouTube se procesarÃ¡n sin el audio de los videos.\n")
+                print("\n  Los artículos con videos de YouTube se procesarán sin el audio de los videos.\n")
 
     # Mostrar voces disponibles
     if args.list_voices:
         print_available_voices()
         return
 
-    # Cargar configuraciÃƒÂ³n
+    # Cargar configuración
     if not os.path.exists(args.config):
-        print(f"Ã¢Å“â€” No se encuentra el archivo de configuraciÃƒÂ³n: {args.config}")
+        print(f"✗ No se encuentra el archivo de configuración: {args.config}")
         print("\nCrea un archivo config.json. Ver config.json.example para la estructura.")
         return
 
     with open(args.config, 'r') as f:
         config = json.load(f)
 
-    # Listar categorÃƒÂ­as y feeds de FreshRSS
+    # Listar categorías y feeds de FreshRSS
     if args.freshrss_list:
         if 'freshrss' not in config:
-            print("Ã¢Å“â€” No hay configuraciÃƒÂ³n de FreshRSS en config.json")
+            print("✗ No hay configuración de FreshRSS en config.json")
             return
 
         fr_config = config['freshrss']
@@ -1331,13 +1451,13 @@ Ejemplos de uso:
             fr_config['password']
         )
 
-        print("\n=== CATEGORÃƒÂAS ===")
+        print("\n=== CATEGORÍAS ===")
         categories = freshrss.list_categories()
         if categories:
             for cat in categories:
                 print(f"  - {cat['name']}")
         else:
-            print("  No se encontraron categorÃƒÂ­as")
+            print("  No se encontraron categorías")
 
         print("\n=== FEEDS ===")
         feeds = freshrss.list_feeds()
@@ -1347,30 +1467,30 @@ Ejemplos de uso:
                 print(f"  - {feed['title']}")
                 print(f"    ID: {feed['id']}")
                 if categories_str:
-                    print(f"    CategorÃƒÂ­as: {categories_str}")
+                    print(f"    Categorías: {categories_str}")
         else:
             print("  No se encontraron feeds")
 
-        print("\nPara usar categorÃƒÂ­as/feeds especÃƒÂ­ficos, edita tu config.json")
+        print("\nPara usar categorías/feeds específicos, edita tu config.json")
         return
 
-    # Verificar dependencias para traducciÃƒÂ³n
+    # Verificar dependencias para traducción
     if args.language:
         try:
             import langdetect
             from deep_translator import GoogleTranslator
-            print(f"\nÃ¢Å“â€œ TraducciÃƒÂ³n automÃƒÂ¡tica habilitada (idioma destino: {args.language})")
+            print(f"\n✓ Traducción automática habilitada (idioma destino: {args.language})")
         except ImportError as e:
-            print(f"Ã¢Å“â€” Error: Falta instalar dependencias para traducciÃƒÂ³n")
+            print(f"✗ Error: Falta instalar dependencias para traducción")
             print("  Instala con: pip install langdetect deep-translator --break-system-packages")
             return
 
-    # Verificar que edge-tts estÃƒÂ© instalado si se solicita
+    # Verificar que edge-tts esté instalado si se solicita
     if args.tts == 'edge':
         try:
             import edge_tts
         except ImportError:
-            print("Ã¢Å“â€” edge-tts no estÃƒÂ¡ instalado. InstÃƒÂ¡lalo con:")
+            print("✗ edge-tts no está instalado. Instálalo con:")
             print("  pip install edge-tts --break-system-packages")
             print("\nUsando gTTS como alternativa...")
             args.tts = 'gtts'
@@ -1427,7 +1547,7 @@ Ejemplos de uso:
         original_language = wb_config.get('original-language')
 
         for article in articles:
-            title = article.get('title', 'Sin tÃƒÂ­tulo')
+            title = article.get('title', 'Sin título')
             content = article.get('content', '')
             article_id = article.get('id')
 
@@ -1449,7 +1569,7 @@ Ejemplos de uso:
                                 description=f"De Wallabag",
                                 category="Wallabag"
                             )
-                        # Marcar como leÃ­do si se solicitÃ³
+                        # Marcar como leído si se solicitó
                         if args.mark_as_read and article_id:
                             wallabag.mark_as_read(article_id)
 
@@ -1463,15 +1583,15 @@ Ejemplos de uso:
             fr_config['password']
         )
 
-        # Obtener configuraciÃƒÂ³n de categorÃƒÂ­as y feeds
+        # Obtener configuración de categorías y feeds
         categories = fr_config.get('categories', [])
         feeds = fr_config.get('feeds', [])
         default_limit = fr_config.get('limit', args.limit)
         default_original_language = fr_config.get('original-language')
 
-        # Si no hay categorÃƒÂ­as ni feeds especÃƒÂ­ficos, obtener de reading-list
+        # Si no hay categorías ni feeds específicos, obtener de reading-list
         if not categories and not feeds:
-            print("Obteniendo artÃƒÂ­culos de reading-list (todos)...")
+            print("Obteniendo artículos de reading-list (todos)...")
             articles = freshrss.get_articles(
                 stream_id='reading-list',
                 limit=default_limit,
@@ -1479,7 +1599,7 @@ Ejemplos de uso:
             )
 
             for article in articles:
-                title = article.get('title', 'Sin tÃƒÂ­tulo')
+                title = article.get('title', 'Sin título')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -1504,20 +1624,20 @@ Ejemplos de uso:
                                     description=title,
                                     category="General"
                                 )
-                            # Marcar como leÃ­do si se solicitÃ³
+                            # Marcar como leído si se solicitó
                             if args.mark_as_read:
                                 article_id = article.get('id')
                                 if article_id:
                                     freshrss.mark_as_read(article_id)
 
-        # Procesar categorÃƒÂ­as especÃƒÂ­ficas
+        # Procesar categorías específicas
         for category in categories:
             cat_name = category.get('name')
             cat_limit = category.get('limit', default_limit)
             cat_voice = category.get('voice', args.voice)
             cat_original_language = category.get('original-language', default_original_language)
 
-            print(f"\nObteniendo artÃƒÂ­culos de categorÃƒÂ­a: {cat_name} (lÃƒÂ­mite: {cat_limit})...")
+            print(f"\nObteniendo artículos de categoría: {cat_name} (límite: {cat_limit})...")
             stream_id = f"user/-/label/{cat_name}"
             articles = freshrss.get_articles(
                 stream_id=stream_id,
@@ -1525,13 +1645,13 @@ Ejemplos de uso:
                 unread_only=fr_config.get('unread_only', True)
             )
 
-            print(f"Ã¢Å“â€œ {len(articles)} artÃƒÂ­culos de '{cat_name}'")
+            print(f"✓ {len(articles)} artículos de '{cat_name}'")
 
             # Actualizar voz (usar la del config o la de args)
             converter.voice = cat_voice
 
             for article in articles:
-                title = article.get('title', 'Sin tÃƒÂ­tulo')
+                title = article.get('title', 'Sin título')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -1541,7 +1661,7 @@ Ejemplos de uso:
                 if content:
                     text = converter.clean_text(content)
                     if text:
-                        # Verificar si esta categorÃ­a incluye procesamiento de YouTube
+                        # Verificar si esta categoría incluye procesamiento de YouTube
                         cat_include_youtube = category.get('include_youtube', False)
 
                         if cat_include_youtube:
@@ -1571,13 +1691,13 @@ Ejemplos de uso:
                                     description=title,
                                     category=cat_name
                                 )
-                            # Marcar como leÃ­do si se solicitÃ³
+                            # Marcar como leído si se solicitó
                             if args.mark_as_read:
                                 article_id = article.get('id')
                                 if article_id:
                                     freshrss.mark_as_read(article_id)
 
-        # Procesar feeds especÃƒÂ­ficos
+        # Procesar feeds específicos
         for feed in feeds:
             feed_id = feed.get('id')
             feed_limit = feed.get('limit', default_limit)
@@ -1585,20 +1705,20 @@ Ejemplos de uso:
             feed_voice = feed.get('voice', args.voice)
             feed_original_language = feed.get('original-language', default_original_language)
 
-            print(f"\nObteniendo artÃƒÂ­culos de feed: {feed_name} (lÃƒÂ­mite: {feed_limit})...")
+            print(f"\nObteniendo artículos de feed: {feed_name} (límite: {feed_limit})...")
             articles = freshrss.get_articles(
                 stream_id=feed_id,
                 limit=feed_limit,
                 unread_only=fr_config.get('unread_only', True)
             )
 
-            print(f"Ã¢Å“â€œ {len(articles)} artÃƒÂ­culos de '{feed_name}'")
+            print(f"✓ {len(articles)} artículos de '{feed_name}'")
 
             # Actualizar voz (usar la del config o la de args)
             converter.voice = feed_voice
 
             for article in articles:
-                title = article.get('title', 'Sin tÃƒÂ­tulo')
+                title = article.get('title', 'Sin título')
                 content = ''
                 if 'summary' in article and 'content' in article['summary']:
                     content = article['summary']['content']
@@ -1638,24 +1758,24 @@ Ejemplos de uso:
                                     description=title,
                                     category=feed_name
                                 )
-                            # Marcar como leÃ­do si se solicitÃ³
+                            # Marcar como leído si se solicitó
                             if args.mark_as_read:
                                 article_id = article.get('id')
                                 if article_id:
                                     freshrss.mark_as_read(article_id)
 
-    print(f"\nÃ¢Å“â€œ Proceso completado. {articles_processed} artÃƒÂ­culos convertidos a MP3")
-    print(f"Ã¢Å“â€œ Motor TTS usado: {args.tts}")
+    print(f"\n✓ Proceso completado. {articles_processed} artículos convertidos a MP3")
+    print(f"✓ Motor TTS usado: {args.tts}")
     if args.tts == 'edge':
-        print(f"Ã¢Å“â€œ Voz usada: {args.voice}")
+        print(f"✓ Voz usada: {args.voice}")
     if args.language:
-        print(f"Ã¢Å“â€œ TraducciÃƒÂ³n automÃƒÂ¡tica: activada (destino: {args.language})")
-    print(f"Ã¢Å“â€œ Omitir existentes: {'SÃƒÂ­' if args.skip_existing else 'No'}")
+        print(f"✓ Traducción automática: activada (destino: {args.language})")
+    print(f"✓ Omitir existentes: {'Sí' if args.skip_existing else 'No'}")
     if args.mark_as_read:
-        print(f"âœ“ Marcar como leÃ­do: SÃ­")
-    print(f"Ã¢Å“â€œ Archivos guardados en: {args.output}")
+        print(f"✓ Marcar como leído: Sí")
+    print(f"✓ Archivos guardados en: {args.output}")
 
-    # Generar feed RSS si se solicitÃƒÂ³
+    # Generar feed RSS si se solicitó
     if args.generate_feed and feed_generator and feed_generator.episodes:
         feed_generator.generate_rss()
 
