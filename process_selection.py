@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Script para procesar artÃƒÂ­culos seleccionados desde la interfaz web
-Lee selection.json y convierte los artÃƒÂ­culos seleccionados a MP3
+Script mejorado para procesar artículos seleccionados desde la interfaz web
+Lee selection.json con opciones personalizadas por artículo y convierte a MP3
+Versión 2.0: Soporte para opciones individuales por artículo
 """
 
 import os
@@ -13,240 +14,62 @@ import glob
 import shutil
 import tempfile
 import subprocess
+import re
 
 # Importar las clases del script principal
-# Asumiendo que articles_to_mp3.py estÃƒÂ¡ en el mismo directorio
 try:
     from articles_to_mp3 import (
         ArticleToMP3Converter,
         WallabagClient,
         FreshRSSClient,
         PodcastFeedGenerator,
-        generate_feed_from_existing_files
+        generate_feed_from_existing_files,
+        extract_youtube_urls,
+        download_youtube_audio,
+        combine_audio_files,
+        get_audio_duration_ms,
+        add_chapters_to_mp3
     )
 except ImportError:
-    print("Ã¢Å“â€” Error: No se puede importar articles_to_mp3.py")
-    print("  AsegÃƒÂºrate de que articles_to_mp3.py estÃƒÂ© en el mismo directorio")
+    print("✗ Error: No se puede importar articles_to_mp3.py")
+    print("  Asegúrate de que articles_to_mp3.py esté en el mismo directorio")
     sys.exit(1)
 
 
-
-# ============================================================================
-# Funciones para procesamiento de audio de YouTube
-# ============================================================================
-
-def extract_youtube_urls(html_content):
-    """
-    Extrae URLs de YouTube del contenido HTML
-    Soporta varios formatos:
-    - https://www.youtube.com/watch?v=VIDEO_ID
-    - https://youtu.be/VIDEO_ID
-    - https://www.youtube.com/embed/VIDEO_ID
-    - iframes de YouTube
-    """
-    youtube_urls = []
-
-    # PatrÃ³n para URLs directas
-    patterns = [
-        r'https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
-        r'https?://youtu\.be/([a-zA-Z0-9_-]+)',
-        r'https?://(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]+)',
-    ]
-
-    for pattern in patterns:
-        matches = re.finditer(pattern, html_content)
-        for match in matches:
-            video_id = match.group(1)
-            url = f"https://www.youtube.com/watch?v={video_id}"
-            if url not in youtube_urls:
-                youtube_urls.append(url)
-
-    return youtube_urls
-
-
-def download_youtube_audio(url, output_dir, title_prefix="yt_audio"):
-    """
-    Descarga el audio de un video de YouTube usando yt-dlp
-
-    Returns:
-        str: Ruta al archivo de audio descargado, o None si falla
-    """
-    try:
-        # Crear nombre de archivo temporal
-        temp_filename = os.path.join(output_dir, f"{title_prefix}_%(id)s.%(ext)s")
-
-        # Comando yt-dlp para descargar solo audio en formato MP3
-        cmd = [
-            'yt-dlp',
-            '--extract-audio',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',  # Mejor calidad
-            '-o', temp_filename,
-            '--no-playlist',
-            '--quiet',
-            '--no-warnings',
-            url
-        ]
-
-        # Ejecutar yt-dlp
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        if result.returncode == 0:
-            # Buscar el archivo descargado
-            # yt-dlp cambia el nombre del archivo, asÃ­ que buscamos archivos .mp3 recientes
-            import glob
-            pattern = os.path.join(output_dir, f"{title_prefix}_*.mp3")
-            files = glob.glob(pattern)
-
-            if files:
-                # Ordenar por tiempo de modificaciÃ³n y tomar el mÃ¡s reciente
-                latest_file = max(files, key=os.path.getmtime)
-                print(f"  âœ“ Audio de YouTube descargado: {os.path.basename(latest_file)}")
-                return latest_file
-            else:
-                print(f"  âœ— No se encontrÃ³ el archivo descargado")
-                return None
-        else:
-            print(f"  âœ— Error descargando audio de YouTube: {result.stderr}")
-            return None
-
-    except Exception as e:
-        print(f"  âœ— Error al descargar audio de YouTube: {e}")
-        return None
-
-
-def combine_audio_files(audio_files, output_file):
-    """
-    Combina mÃºltiples archivos de audio en uno solo usando ffmpeg
-
-    Args:
-        audio_files: Lista de rutas a archivos de audio (en orden)
-        output_file: Ruta al archivo de salida
-
-    Returns:
-        bool: True si tuvo Ã©xito, False si fallÃ³
-    """
-    if not audio_files:
-        return False
-
-    if len(audio_files) == 1:
-        # Si solo hay un archivo, simplemente copiarlo
-        import shutil
-        shutil.copy(audio_files[0], output_file)
-        return True
-
-    try:
-        # Crear un archivo de lista temporal para ffmpeg
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            list_file = f.name
-            for audio_file in audio_files:
-                # Escapar comillas simples en el nombre del archivo
-                safe_path = audio_file.replace("'", "'\\''")
-                f.write(f"file '{safe_path}'\n")
-
-        # Comando ffmpeg para concatenar
-        cmd = [
-            'ffmpeg',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', list_file,
-            '-c', 'copy',
-            '-y',  # Sobrescribir si existe
-            output_file
-        ]
-
-        # Ejecutar ffmpeg
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL
-        )
-
-        # Limpiar archivo temporal
-        os.unlink(list_file)
-
-        if result.returncode == 0:
-            print(f"  âœ“ Audios combinados exitosamente")
-            return True
-        else:
-            print(f"  âœ— Error combinando audios con ffmpeg")
-            return False
-
-    except Exception as e:
-        print(f"  âœ— Error al combinar audios: {e}")
-        return False
-
-
-def check_dependencies():
-    """
-    Verifica que yt-dlp y ffmpeg estÃ©n instalados
-
-    Returns:
-        tuple: (yt-dlp_available, ffmpeg_available)
-    """
-    yt_dlp_available = False
-    ffmpeg_available = False
-
-    try:
-        result = subprocess.run(
-            ['yt-dlp', '--version'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        yt_dlp_available = result.returncode == 0
-    except:
-        pass
-
-    try:
-        result = subprocess.run(
-            ['ffmpeg', '-version'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        ffmpeg_available = result.returncode == 0
-    except:
-        pass
-
-    return yt_dlp_available, ffmpeg_available
-
-
 def load_config(config_file='config.json'):
-    """Carga la configuraciÃƒÂ³n desde config.json"""
+    """Carga el archivo de configuración"""
     if not os.path.exists(config_file):
-        print(f"Ã¢Å“â€” No se encuentra {config_file}")
-        print("  Se necesita config.json con las credenciales de Wallabag/FreshRSS")
+        print(f"✗ No se encuentra el archivo de configuración: {config_file}")
         return None
 
     with open(config_file, 'r') as f:
         return json.load(f)
 
 
-def load_selection(selection_file):
-    """Carga los artÃƒÂ­culos seleccionados"""
+def load_selection(selection_file='selection.json'):
+    """Carga el archivo de selección"""
     if not os.path.exists(selection_file):
-        print(f"Ã¢Å“â€” No se encuentra {selection_file}")
+        print(f"✗ No se encuentra el archivo de selección: {selection_file}")
         return None
 
-    with open(selection_file, 'r') as f:
+    with open(selection_file, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
-def process_wallabag_articles(selection, config, converter, feed_generator=None, mark_as_read=False):
-    """Procesa artÃƒÂ­culos de Wallabag"""
-    wallabag_articles = selection.get('wallabag', [])
-
-    if not wallabag_articles:
-        return 0
+def process_wallabag_articles(selection, config, default_options, feed_generator=None):
+    """Procesa artículos de Wallabag con opciones personalizadas"""
 
     if 'wallabag' not in config:
-        print("Ã¢Å¡Â  No hay configuraciÃƒÂ³n de Wallabag en config.json")
+        print("ℹ️  Wallabag no configurado, saltando...")
         return 0
 
-    print(f"\n=== WALLABAG: {len(wallabag_articles)} artÃƒÂ­culos ===")
+    wallabag_selection = selection.get('wallabag', [])
+    if not wallabag_selection:
+        print("ℹ️  No hay artículos de Wallabag seleccionados")
+        return 0
+
+    print("\n=== WALLABAG ===")
+    print(f"📋 {len(wallabag_selection)} artículos seleccionados")
 
     wb_config = config['wallabag']
     wallabag = WallabagClient(
@@ -258,41 +81,71 @@ def process_wallabag_articles(selection, config, converter, feed_generator=None,
     )
 
     processed = 0
+    total_articles = len(wallabag_selection)
 
-    for idx, article_info in enumerate(wallabag_articles, 1):
+    for idx, article_info in enumerate(wallabag_selection, 1):
         article_id = article_info.get('id')
-        title = article_info.get('title', 'Sin tÃƒÂ­tulo')
+        title = article_info.get('title', 'Sin título')
 
-        print(f"\nProcesando {idx}/{len(wallabag_articles)}: {title}")
+        # Opciones específicas del artículo (con fallback a opciones por defecto)
+        article_options = {
+            'voice': article_info.get('voice', default_options['default_voice']),
+            'language': article_info.get('language', default_options['default_language']),
+            'include_youtube': article_info.get('include_youtube', default_options.get('include_youtube', False)),
+            'tts_engine': article_info.get('tts_engine', default_options.get('tts_engine', 'edge'))
+        }
 
-        # Obtener el artÃƒÂ­culo completo de Wallabag
+        print(f"\nProcesando {idx}/{total_articles}: {title}")
+        print(f"  🎤 Voz: {article_options['voice']}")
+        print(f"  🌍 Idioma: {article_options['language']}")
+        if article_options['include_youtube']:
+            print(f"  📺 YouTube: Habilitado")
+
         try:
+            # Obtener artículo completo
             article = wallabag.get_article(article_id)
-
             if not article:
-                print(f"  Ã¢Å“â€” No se pudo obtener el artÃƒÂ­culo {article_id}")
+                print(f"  ✗ No se pudo obtener el artículo")
                 continue
 
             content = article.get('content', '')
-
             if not content:
-                print(f"  Ã¢Å“â€” ArtÃƒÂ­culo sin contenido")
+                print(f"  ✗ Artículo sin contenido")
                 continue
 
-            # Limpiar y convertir
+            # Crear convertidor con opciones del artículo
+            converter = ArticleToMP3Converter(
+                output_dir=default_options['output_dir'],
+                tts_engine=article_options['tts_engine'],
+                voice=article_options['voice'],
+                skip_existing=default_options.get('skip_existing', True),
+                target_language=article_options['language']
+            )
+
+            # Limpiar texto
             text = converter.clean_text(content)
 
             if text:
-                original_language = wb_config.get('original-language')
-                filepath = converter.process_and_convert(
-                    text,
-                    title,
-                    original_language=original_language
-                )
+                # Determinar si procesar con YouTube
+                if article_options['include_youtube']:
+                    filepath = converter.process_and_convert_with_youtube(
+                        text,
+                        content,  # HTML original
+                        title,
+                        original_language=wb_config.get('original-language'),
+                        lang=article_options['language']
+                    )
+                else:
+                    filepath = converter.process_and_convert(
+                        text,
+                        title,
+                        original_language=wb_config.get('original-language'),
+                        lang=article_options['language']
+                    )
 
                 if filepath:
                     processed += 1
-                    print(f"  Ã¢Å“â€œ Convertido: {os.path.basename(filepath)}")
+                    print(f"  ✓ Convertido: {os.path.basename(filepath)}")
 
                     if feed_generator:
                         feed_generator.add_episode(
@@ -303,30 +156,25 @@ def process_wallabag_articles(selection, config, converter, feed_generator=None,
                         )
 
         except Exception as e:
-            print(f"  Ã¢Å“â€” Error procesando artÃƒÂ­culo {article_id}: {e}")
+            print(f"  ✗ Error procesando artículo: {e}")
 
+    print(f"\n✓ Wallabag: {processed}/{total_articles} artículos procesados")
     return processed
 
 
-def process_freshrss_articles(selection, config, converter, feed_generator=None, mark_as_read=False):
-    """Procesa artÃƒÂ­culos de FreshRSS"""
-    freshrss_selection = selection.get('freshrss', {}).get('categories', {})
-
-    if not freshrss_selection:
-        return 0
+def process_freshrss_articles(selection, config, default_options, feed_generator=None):
+    """Procesa artículos de FreshRSS con opciones personalizadas"""
 
     if 'freshrss' not in config:
-        print("Ã¢Å¡Â  No hay configuraciÃƒÂ³n de FreshRSS en config.json")
+        print("ℹ️  FreshRSS no configurado, saltando...")
         return 0
 
-    # Contar total de artÃƒÂ­culos
-    total_articles = sum(
-        len(feed_articles)
-        for category in freshrss_selection.values()
-        for feed_articles in category.values()
-    )
+    freshrss_selection = selection.get('freshrss', {})
+    if not freshrss_selection:
+        print("ℹ️  No hay artículos de FreshRSS seleccionados")
+        return 0
 
-    print(f"\n=== FRESHRSS: {total_articles} artÃƒÂ­culos ===")
+    print("\n=== FRESHRSS ===")
 
     fr_config = config['freshrss']
     freshrss = FreshRSSClient(
@@ -335,54 +183,58 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None,
         fr_config['password']
     )
 
-    # Cargar articles_data.json para obtener nombres de feeds
-    feed_names = {}
-    try:
-        articles_data_file = 'articles_data.json'
-        if os.path.exists(articles_data_file):
-            with open(articles_data_file, 'r') as f:
-                articles_data = json.load(f)
-
-            # Construir un mapa de feed_id -> feed_title
-            for category in articles_data.get('freshrss', {}).get('categories', []):
-                for feed in category.get('feeds', []):
-                    feed_names[feed['id']] = feed['title']
-
-            print(f"Ã°Å¸â€œÅ¡ Cargados nombres de {len(feed_names)} feeds")
-        else:
-            print("Ã¢Å¡Â Ã¯Â¸Â  No se encuentra articles_data.json, los tÃƒÂ­tulos no incluirÃƒÂ¡n el nombre del feed")
-    except Exception as e:
-        print(f"Ã¢Å¡Â Ã¯Â¸Â  Error cargando nombres de feeds: {e}")
+    # Obtener todos los feeds para mapear IDs a nombres
+    all_feeds = freshrss.list_feeds()
+    feed_names = {feed['id']: feed['title'] for feed in all_feeds}
 
     processed = 0
+
+    # Contar total de artículos
+    total_articles = 0
+    for category_feeds in freshrss_selection.get('categories', {}).values():
+        for feed_articles in category_feeds.values():
+            total_articles += len(feed_articles)
+
+    print(f"📋 {total_articles} artículos seleccionados")
+
     article_count = 0
 
-    # Procesar por categorÃƒÂ­a y feed
-    for category_name, feeds in freshrss_selection.items():
-        print(f"\nÃ°Å¸â€œÂ CategorÃƒÂ­a: {category_name}")
+    # Procesar por categoría > feed > artículos
+    for category_name, category_feeds in freshrss_selection.get('categories', {}).items():
+        print(f"\n📁 Categoría: {category_name}")
 
-        for feed_id, articles in feeds.items():
-            # Obtener nombre del feed
-            feed_name = feed_names.get(feed_id, feed_id.split('/')[-1])  # Fallback al ID
+        for feed_id, articles in category_feeds.items():
+            feed_name = feed_names.get(feed_id, feed_id.split('/')[-1])
 
-            print(f"\n  Ã°Å¸â€œÂ° Feed: {feed_name} ({len(articles)} artÃƒÂ­culos)")
+            print(f"\n  📰 Feed: {feed_name} ({len(articles)} artículos)")
 
             for article_info in articles:
                 article_count += 1
                 article_id = article_info.get('id')
-                title = article_info.get('title', 'Sin tÃƒÂ­tulo')
+                title = article_info.get('title', 'Sin título')
+
+                # Opciones específicas del artículo
+                article_options = {
+                    'voice': article_info.get('voice', default_options['default_voice']),
+                    'language': article_info.get('language', default_options['default_language']),
+                    'include_youtube': article_info.get('include_youtube', default_options.get('include_youtube', False)),
+                    'tts_engine': article_info.get('tts_engine', default_options.get('tts_engine', 'edge'))
+                }
 
                 print(f"\n  Procesando {article_count}/{total_articles}: {title}")
+                print(f"    🎤 Voz: {article_options['voice']}")
+                print(f"    🌍 Idioma: {article_options['language']}")
+                if article_options['include_youtube']:
+                    print(f"    📺 YouTube: Habilitado")
 
                 try:
-                    # Obtener el artÃƒÂ­culo completo de FreshRSS
-                    # Usando el ID del artÃƒÂ­culo directamente
+                    # Obtener artículo completo
                     articles_full = freshrss.get_articles(
                         stream_id=feed_id,
                         limit=100
                     )
 
-                    # Buscar el artÃƒÂ­culo especÃƒÂ­fico
+                    # Buscar el artículo específico
                     article = None
                     for art in articles_full:
                         if art.get('id') == article_id:
@@ -390,7 +242,7 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None,
                             break
 
                     if not article:
-                        print(f"    Ã¢Å“â€” No se pudo obtener el artÃƒÂ­culo")
+                        print(f"    ✗ No se pudo obtener el artículo")
                         continue
 
                     # Extraer contenido
@@ -401,27 +253,44 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None,
                         content = article['content']['content']
 
                     if not content:
-                        print(f"    Ã¢Å“â€” ArtÃƒÂ­culo sin contenido")
+                        print(f"    ✗ Artículo sin contenido")
                         continue
 
-                    # Limpiar y convertir
+                    # Crear convertidor con opciones del artículo
+                    converter = ArticleToMP3Converter(
+                        output_dir=default_options['output_dir'],
+                        tts_engine=article_options['tts_engine'],
+                        voice=article_options['voice'],
+                        skip_existing=default_options.get('skip_existing', True),
+                        target_language=article_options['language']
+                    )
+
+                    # Limpiar texto
                     text = converter.clean_text(content)
 
                     if text:
-                        original_language = fr_config.get('original-language')
-
-                        # Formato: [CategorÃƒÂ­a] Nombre del Feed - TÃƒÂ­tulo del artÃƒÂ­culo
                         episode_title = f"[{category_name}] {feed_name} - {title}"
 
-                        filepath = converter.process_and_convert(
-                            text,
-                            episode_title,
-                            original_language=original_language
-                        )
+                        # Determinar si procesar con YouTube
+                        if article_options['include_youtube']:
+                            filepath = converter.process_and_convert_with_youtube(
+                                text,
+                                content,  # HTML original
+                                episode_title,
+                                original_language=fr_config.get('original-language'),
+                                lang=article_options['language']
+                            )
+                        else:
+                            filepath = converter.process_and_convert(
+                                text,
+                                episode_title,
+                                original_language=fr_config.get('original-language'),
+                                lang=article_options['language']
+                            )
 
                         if filepath:
                             processed += 1
-                            print(f"    Ã¢Å“â€œ Convertido: {os.path.basename(filepath)}")
+                            print(f"    ✓ Convertido: {os.path.basename(filepath)}")
 
                             if feed_generator:
                                 feed_generator.add_episode(
@@ -432,135 +301,135 @@ def process_freshrss_articles(selection, config, converter, feed_generator=None,
                                 )
 
                 except Exception as e:
-                    print(f"    Ã¢Å“â€” Error procesando artÃƒÂ­culo: {e}")
+                    print(f"    ✗ Error procesando artículo: {e}")
 
+    print(f"\n✓ FreshRSS: {processed}/{total_articles} artículos procesados")
     return processed
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Procesa artÃƒÂ­culos seleccionados y los convierte a MP3'
+        description='Procesa artículos seleccionados con opciones personalizadas'
     )
     parser.add_argument('--selection', default='selection.json',
-                       help='Archivo de selecciÃƒÂ³n JSON')
+                       help='Archivo de selección JSON con opciones')
     parser.add_argument('--config', default='config.json',
-                       help='Archivo de configuraciÃƒÂ³n JSON')
+                       help='Archivo de configuración JSON')
     parser.add_argument('--output', default='audio_articles',
                        help='Directorio de salida para los MP3')
-    parser.add_argument('--tts', choices=['gtts', 'edge'],
-                       default='edge', help='Motor TTS a usar')
-    parser.add_argument('--voice', default='es-ES-AlvaroNeural',
-                       help='Voz para edge-tts')
-    parser.add_argument('--skip-existing', action='store_true', default=True,
-                       help='Omitir archivos que ya existen')
-    parser.add_argument('--language', choices=['es', 'en', 'fr', 'de', 'it', 'pt'],
-                       help='Idioma destino para traducciÃƒÂ³n automÃƒÂ¡tica')
     parser.add_argument('--generate-feed', action='store_true',
-                       help='Generar feed RSS/Podcast')
+                       help='Generar/actualizar feed RSS/Podcast')
     parser.add_argument('--base-url', default='https://podcast.pollete.duckdns.org',
                        help='URL base para el feed RSS')
-    parser.add_argument('--feed-title', default='Mis ArtÃƒÂ­culos TTS',
-                       help='TÃƒÂ­tulo del podcast')
-    parser.add_argument('--feed-description', default='ArtÃƒÂ­culos convertidos a audio',
-                       help='DescripciÃƒÂ³n del podcast')
-    parser.add_argument('--only-xml', action='store_true',
-                       help='Solo generar podcast.xml desde archivos MP3 existentes')
 
     args = parser.parse_args()
 
-    # Si solo se quiere generar el XML
-    if args.only_xml:
-        feed_dir = os.path.dirname(args.output) if args.output not in ['.', ''] else '.'
-        success = generate_feed_from_existing_files(
-            output_dir=args.output,
-            base_url=args.base_url,
-            feed_title=args.feed_title,
-            feed_description=args.feed_description,
-            feed_dir=feed_dir
-        )
-        return 0 if success else 1
-
-    # Cargar configuraciÃƒÂ³n
+    # Cargar configuración
     config = load_config(args.config)
     if not config:
         return 1
 
-    # Cargar selecciÃƒÂ³n
+    # Cargar selección
     selection = load_selection(args.selection)
     if not selection:
         return 1
 
-    print(f"""
-Ã¢â€¢â€Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢â€”
-Ã¢â€¢â€˜                                                               Ã¢â€¢â€˜
-Ã¢â€¢â€˜   Ã°Å¸Å½â„¢Ã¯Â¸Â  ConversiÃƒÂ³n de ArtÃƒÂ­culos Seleccionados a MP3            Ã¢â€¢â€˜
-Ã¢â€¢â€˜                                                               Ã¢â€¢â€˜
-Ã¢â€¢Å¡Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+    # Extraer opciones globales del selection.json
+    global_options = selection.get('options', {})
 
-Ã¢Å¡â„¢Ã¯Â¸Â  Motor TTS: {args.tts}
-Ã°Å¸â€Å  Voz: {args.voice}
-Ã°Å¸â€œÂ Salida: {args.output}
-Ã°Å¸â€â€ž Omitir existentes: {args.skip_existing}
+    default_options = {
+        'output_dir': args.output,
+        'tts_engine': global_options.get('tts_engine', 'edge'),
+        'default_voice': global_options.get('default_voice', 'es-ES-AlvaroNeural'),
+        'default_language': global_options.get('default_language', 'es'),
+        'include_youtube': global_options.get('include_youtube', False),
+        'skip_existing': global_options.get('skip_existing', True),
+        'generate_feed': args.generate_feed or global_options.get('generate_feed', True),
+        'base_url': args.base_url,
+        'feed_title': global_options.get('feed_title', 'Mis Artículos TTS'),
+        'feed_description': global_options.get('feed_description', 'Artículos convertidos a audio')
+    }
+
+    print(f"""
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   🎙️  Conversión de Artículos Seleccionados a MP3        ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+
+⚙️  Opciones globales:
+   🎤 Motor TTS: {default_options['tts_engine']}
+   🔊 Voz por defecto: {default_options['default_voice']}
+   🌍 Idioma por defecto: {default_options['default_language']}
+   📺 YouTube: {'Habilitado' if default_options['include_youtube'] else 'Deshabilitado'} (por defecto)
+   📂 Salida: {default_options['output_dir']}
+   ⏭️  Omitir existentes: {'Sí' if default_options['skip_existing'] else 'No'}
     """)
 
-    if args.language:
-        print(f"Ã°Å¸Å’Â TraducciÃƒÂ³n automÃƒÂ¡tica: {args.language}")
-
     # Verificar edge-tts si es necesario
-    if args.tts == 'edge':
+    if default_options['tts_engine'] == 'edge':
         try:
             import edge_tts
+            print("✓ edge-tts disponible")
         except ImportError:
-            print("Ã¢Å“â€” edge-tts no estÃƒÂ¡ instalado. Cambiando a gTTS...")
-            args.tts = 'gtts'
-
-    # Inicializar convertidor
-    converter = ArticleToMP3Converter(
-        output_dir=args.output,
-        tts_engine=args.tts,
-        voice=args.voice,
-        skip_existing=args.skip_existing,
-        target_language=args.language
-    )
+            print("⚠️  edge-tts no está instalado. Cambiando a gTTS...")
+            default_options['tts_engine'] = 'gtts'
 
     # Inicializar generador de feed si se solicita
     feed_generator = None
-    if args.generate_feed:
+    if default_options['generate_feed']:
         feed_generator = PodcastFeedGenerator(
-            output_dir=args.output,
-            base_url=args.base_url,
-            title=args.feed_title,
-            description=args.feed_description
+            output_dir=default_options['output_dir'],
+            base_url=default_options['base_url'],
+            title=default_options['feed_title'],
+            description=default_options['feed_description']
         )
+        print("✓ Generador de feed RSS habilitado")
 
-    # Procesar artÃƒÂ­culos
+    # Procesar artículos
     total_processed = 0
 
     # Wallabag
-    wb_processed = process_wallabag_articles(selection, config, converter, feed_generator, args.mark_as_read)
+    wb_processed = process_wallabag_articles(selection, config, default_options, feed_generator)
     total_processed += wb_processed
 
     # FreshRSS
-    fr_processed = process_freshrss_articles(selection, config, converter, feed_generator, args.mark_as_read)
+    fr_processed = process_freshrss_articles(selection, config, default_options, feed_generator)
     total_processed += fr_processed
 
     # Resumen
     print(f"""
-Ã¢â€¢â€Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢â€”
-Ã¢â€¢â€˜                                                               Ã¢â€¢â€˜
-Ã¢â€¢â€˜   Ã¢Å“â€œ Proceso Completado                                       Ã¢â€¢â€˜
-Ã¢â€¢â€˜                                                               Ã¢â€¢â€˜
-Ã¢â€¢â€˜   Ã°Å¸â€œÅ  {total_processed} artÃƒÂ­culos convertidos exitosamente                  Ã¢â€¢â€˜
-Ã¢â€¢â€˜   Ã°Å¸â€œÂ Archivos guardados en: {args.output:<30} Ã¢â€¢â€˜
-Ã¢â€¢â€˜                                                               Ã¢â€¢â€˜
-Ã¢â€¢Å¡Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   ✅ Proceso Completado                                   ║
+║                                                           ║
+║   📊 {total_processed} artículos convertidos exitosamente           ║
+║   📂 Archivos guardados en: {default_options['output_dir']:<25} ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
     """)
 
-    # Generar feed RSS si se solicitÃƒÂ³
-    if args.generate_feed and feed_generator and feed_generator.episodes:
-        print("\nÃ°Å¸Å½â„¢Ã¯Â¸Â  Generando feed RSS para podcast...")
-        feed_generator.generate_rss()
-        print(f"Ã¢Å“â€œ Feed RSS generado: {os.path.join(args.output, 'podcast.xml')}")
+    # Generar/actualizar feed RSS
+    if default_options['generate_feed']:
+        print("\n🎙️  Generando/actualizando feed RSS para podcast...")
+
+        if feed_generator and feed_generator.episodes:
+            # Generar feed desde los nuevos episodios
+            feed_path = feed_generator.generate_rss()
+            print(f"✓ Feed RSS actualizado: {feed_path}")
+        else:
+            # Si no hay nuevos episodios pero queremos actualizar el feed
+            # Generar desde todos los archivos MP3 existentes
+            feed_dir = os.path.dirname(default_options['output_dir']) or '.'
+            success = generate_feed_from_existing_files(
+                output_dir=default_options['output_dir'],
+                base_url=default_options['base_url'],
+                feed_title=default_options['feed_title'],
+                feed_description=default_options['feed_description'],
+                feed_dir=feed_dir
+            )
+            if success:
+                print(f"✓ Feed RSS generado desde archivos existentes")
 
     return 0
 
