@@ -71,6 +71,80 @@
                 font-weight: 300;
             }
 
+            /* Opciones globales */
+            .global-options {
+                margin-top: 1.5rem;
+                padding: 1.5rem;
+                background: var(--bg-tertiary);
+                border-radius: 4px;
+                border-left: 3px solid var(--accent);
+            }
+
+            .options-title {
+                font-family: "Space Mono", monospace;
+                font-size: 0.9rem;
+                color: var(--accent);
+                margin-bottom: 1rem;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+            }
+
+            .options-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 1rem;
+            }
+
+            .option-item {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .option-label {
+                font-size: 0.75rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-family: "Space Mono", monospace;
+            }
+
+            .option-item select,
+            .option-item input[type="text"] {
+                padding: 0.5rem;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Work Sans", sans-serif;
+                font-size: 0.9rem;
+                transition: border-color 0.2s ease;
+            }
+
+            .option-item select:focus,
+            .option-item input[type="text"]:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+
+            .option-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .option-checkbox input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+                accent-color: var(--accent);
+            }
+
+            .option-checkbox label {
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                cursor: pointer;
+            }
+
             .stats-bar {
                 display: flex;
                 gap: 2rem;
@@ -305,8 +379,8 @@
                 background: var(--bg-secondary);
                 border-bottom: 1px solid rgba(255, 255, 255, 0.03);
                 display: flex;
+                flex-direction: column;
                 gap: 1rem;
-                align-items: start;
                 cursor: pointer;
                 transition: all 0.2s ease;
             }
@@ -314,6 +388,12 @@
             .article-item:hover {
                 background: var(--bg-tertiary);
                 padding-left: 4rem;
+            }
+
+            .article-main {
+                display: flex;
+                gap: 1rem;
+                align-items: start;
             }
 
             .checkbox-wrapper {
@@ -349,6 +429,85 @@
                 display: flex;
                 align-items: center;
                 gap: 0.25rem;
+            }
+
+            /* Opciones del artículo */
+            .article-options {
+                display: none;
+                padding: 1rem;
+                padding-left: 2rem;
+                background: rgba(0, 255, 136, 0.05);
+                border-left: 2px solid var(--accent);
+                margin-left: 2rem;
+            }
+
+            .article-item.selected .article-options {
+                display: block;
+            }
+
+            .article-options-title {
+                font-size: 0.75rem;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-family: "Space Mono", monospace;
+                margin-bottom: 0.75rem;
+            }
+
+            .article-options-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .article-option {
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .article-option label {
+                font-size: 0.7rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                font-family: "Space Mono", monospace;
+            }
+
+            .article-option select {
+                padding: 0.4rem;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-size: 0.85rem;
+                transition: border-color 0.2s ease;
+            }
+
+            .article-option select:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+
+            .article-option-checkbox {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                padding-top: 0.5rem;
+            }
+
+            .article-option-checkbox input {
+                width: 16px;
+                height: 16px;
+                cursor: pointer;
+                accent-color: var(--accent);
+            }
+
+            .article-option-checkbox label {
+                font-size: 0.8rem;
+                color: var(--text-secondary);
+                text-transform: none;
+                letter-spacing: normal;
+                cursor: pointer;
             }
 
             .toggle-icon {
@@ -493,21 +652,116 @@
                     transform: rotate(360deg);
                 }
             }
+
+            @media (max-width: 768px) {
+                .options-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .article-options-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
         </style>
     </head>
     <body>
         <div class="header">
             <div class="header-content">
-                <h1>
-                    📚 Articles to
-                    <span class="accent-text">MP3</span>
-                </h1>
+                <h1><span class="accent-text">♪</span> Articles to MP3</h1>
                 <p class="subtitle">
-                    Selecciona los artículos que quieres convertir en audio
+                    Selecciona artículos y configura opciones de conversión
                 </p>
+
+                <!-- Opciones Globales -->
+                <div class="global-options">
+                    <div class="options-title">⚙ Opciones Globales</div>
+                    <div class="options-grid">
+                        <div class="option-item">
+                            <label class="option-label"
+                                >🎤 Voz por Defecto</label
+                            >
+                            <select id="default-voice">
+                                <optgroup label="Español">
+                                    <option value="es-ES-AlvaroNeural" selected>
+                                        Alvaro (España, H)
+                                    </option>
+                                    <option value="es-ES-ElviraNeural">
+                                        Elvira (España, M)
+                                    </option>
+                                    <option value="es-ES-AbrilNeural">
+                                        Abril (España, M)
+                                    </option>
+                                    <option value="es-MX-DaliaNeural">
+                                        Dalia (México, M)
+                                    </option>
+                                    <option value="es-MX-JorgeNeural">
+                                        Jorge (México, H)
+                                    </option>
+                                    <option value="es-AR-ElenaNeural">
+                                        Elena (Argentina, M)
+                                    </option>
+                                    <option value="es-AR-TomasNeural">
+                                        Tomás (Argentina, H)
+                                    </option>
+                                </optgroup>
+                                <optgroup label="Inglés">
+                                    <option value="en-US-AriaNeural">
+                                        Aria (US, M)
+                                    </option>
+                                    <option value="en-US-GuyNeural">
+                                        Guy (US, H)
+                                    </option>
+                                    <option value="en-GB-SoniaNeural">
+                                        Sonia (UK, M)
+                                    </option>
+                                    <option value="en-GB-RyanNeural">
+                                        Ryan (UK, H)
+                                    </option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div class="option-item">
+                            <label class="option-label"
+                                >🌍 Idioma del Audio</label
+                            >
+                            <select id="default-language">
+                                <option value="es" selected>Español</option>
+                                <option value="en">English</option>
+                                <option value="fr">Français</option>
+                                <option value="de">Deutsch</option>
+                                <option value="it">Italiano</option>
+                                <option value="pt">Português</option>
+                            </select>
+                        </div>
+
+                        <div class="option-item">
+                            <label class="option-label">🎛 Motor TTS</label>
+                            <select id="tts-engine">
+                                <option value="edge" selected>
+                                    Edge TTS (mejor calidad)
+                                </option>
+                                <option value="gtts">
+                                    Google TTS (más rápido)
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="option-item">
+                            <label class="option-label">📺 YouTube</label>
+                            <div class="option-checkbox">
+                                <input type="checkbox" id="default-youtube" />
+                                <label for="default-youtube"
+                                    >Incluir videos por defecto</label
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="stats-bar">
                     <div class="stat">
-                        <span class="stat-label">Total Artículos</span>
+                        <span class="stat-label">Total</span>
                         <span class="stat-value" id="totalArticles">0</span>
                     </div>
                     <div class="stat">
@@ -527,69 +781,55 @@
                 <input
                     type="text"
                     id="searchFilter"
-                    placeholder="🔍 Buscar artículos por título..."
+                    placeholder="🔍 Buscar artículos..."
                     oninput="filterArticles()"
                 />
             </div>
 
             <div class="controls">
                 <button class="btn" onclick="selectAll()">
-                    ✓ Seleccionar Todo
+                    Seleccionar Todos
                 </button>
                 <button class="btn" onclick="deselectAll()">
-                    ✗ Deseleccionar Todo
+                    Deseleccionar Todos
                 </button>
-                <button class="btn" onclick="loadData()">
-                    🔄 Recargar Datos
+                <button class="btn" onclick="downloadSelectionJson()">
+                    💾 Descargar JSON
                 </button>
             </div>
 
-            <div id="articlesContainer">
-                <div
-                    style="
-                        text-align: center;
-                        padding: 4rem;
-                        color: var(--text-dim);
-                    "
-                >
-                    <p style="font-size: 1.2rem">Cargando datos...</p>
-                    <p style="margin-top: 1rem">
-                        Asegúrate de haber ejecutado: python3 fetch_articles.py
-                    </p>
-                </div>
+            <div id="sourcesContainer">
+                <!-- Se llenará dinámicamente -->
             </div>
         </div>
 
-        <div id="actionPanel" class="action-panel">
-            <h3>⚡ Acciones</h3>
+        <!-- Panel de acción flotante -->
+        <div class="action-panel" id="actionPanel">
+            <h3>ACCIÓN</h3>
             <div class="action-stats">
                 <div>
-                    <span id="actionSelectedCount">0</span> artículos
-                    seleccionados
+                    <strong id="actionCount">0</strong> artículos seleccionados
                 </div>
-                <div><span id="actionWords">0</span> palabras estimadas</div>
+                <div>~<strong id="actionWords">0</strong> palabras</div>
             </div>
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="saveToServer()">
-                    🎙️ Convertir a MP3
-                </button>
-                <button class="btn" onclick="downloadSelectionJson()">
-                    📥 Descargar JSON
+                    🎵 CONVERTIR A MP3
                 </button>
             </div>
         </div>
 
         <!-- Modal de progreso -->
-        <div id="progressModal" class="progress-modal">
+        <div class="progress-modal" id="progressModal">
             <div class="progress-content">
-                <h2 class="progress-title">🎙️ Convirtiendo Artículos a MP3</h2>
+                <div class="progress-title">CONVERSIÓN EN PROGRESO</div>
                 <div class="progress-bar-container">
-                    <div id="progressBar" class="progress-bar">
-                        <span id="progressText">0/0 (0%)</span>
+                    <div class="progress-bar" id="progressBar">
+                        <span id="progressText">0%</span>
                     </div>
                 </div>
                 <div class="progress-message">
-                    <div class="progress-spinner"></div>
+                    <span class="progress-spinner"></span>
                     <span id="progressMessage">Iniciando...</span>
                 </div>
             </div>
@@ -597,338 +837,354 @@
 
         <script>
             let articlesData = null;
+            let selectedArticlesData = {};
 
             async function loadData() {
-                // Intentar cargar desde diferentes rutas según el entorno
-                const possiblePaths = [
-                    "/api/articles_data.json", // A través de swag + Flask
-                    "articles_data.json", // Mismo directorio (local)
-                    "./articles_data.json", // Explícito mismo directorio
-                ];
-
-                for (const path of possiblePaths) {
-                    try {
-                        console.log(`Intentando cargar desde: ${path}`);
-                        const response = await fetch(path);
-
-                        if (!response.ok) {
-                            console.log(
-                                `${path} falló con status ${response.status}`,
-                            );
-                            continue;
-                        }
-
-                        articlesData = await response.json();
-                        console.log(`✓ Datos cargados desde: ${path}`);
-                        renderArticles();
-                        updateStats();
-                        return; // Éxito, salir
-                    } catch (error) {
-                        console.log(`Error al intentar ${path}:`, error);
-                        continue;
-                    }
+                try {
+                    const response = await fetch("/api/articles_data.json");
+                    articlesData = await response.json();
+                    renderSources();
+                    updateCounts();
+                } catch (error) {
+                    console.error("Error cargando datos:", error);
+                    alert(
+                        "Error al cargar los artículos. Verifica que el servidor esté corriendo.",
+                    );
                 }
-
-                // Si llegamos aquí, ninguna ruta funcionó
-                console.error(
-                    "No se pudo cargar articles_data.json desde ninguna ruta",
-                );
-                document.getElementById("articlesContainer").innerHTML = `
-                    <div style="text-align: center; padding: 4rem; color: var(--danger);">
-                        <p style="font-size: 1.2rem;">✗ Error al cargar articles_data.json</p>
-                        <p style="margin-top: 1rem;">Asegúrate de:</p>
-                        <ul style="text-align: left; max-width: 500px; margin: 1rem auto; color: var(--text-secondary);">
-                            <li>Haber ejecutado: <code>python3 fetch_articles_improved.py</code></li>
-                            <li>Que el archivo exista en el directorio correcto</li>
-                            <li>Que el servidor Flask esté corriendo (si usas swag)</li>
-                        </ul>
-                    </div>
-                `;
             }
 
-            function renderArticles() {
+            function renderSources() {
+                const container = document.getElementById("sourcesContainer");
                 let html = "";
 
                 // Wallabag
-                if (
-                    articlesData.wallabag.enabled &&
-                    articlesData.wallabag.articles.length > 0
-                ) {
-                    html += renderWallabagSection();
+                if (articlesData.wallabag && articlesData.wallabag.enabled) {
+                    html += renderWallabag();
                 }
 
                 // FreshRSS
-                if (
-                    articlesData.freshrss.enabled &&
-                    articlesData.freshrss.categories.length > 0
-                ) {
-                    html += renderFreshRSSSection();
+                if (articlesData.freshrss && articlesData.freshrss.enabled) {
+                    html += renderFreshRSS();
                 }
 
-                document.getElementById("articlesContainer").innerHTML = html;
+                container.innerHTML = html;
             }
 
-            function renderWallabagSection() {
-                const articles = articlesData.wallabag.articles;
+            function renderWallabag() {
+                const articles = articlesData.wallabag.articles || [];
+                if (!articles.length) return "";
+
                 let html = `
-                <div class="source-section">
-                    <div class="source-header" onclick="toggleSection('wallabag')">
-                        <div class="source-title">
-                            📖 Wallabag
-                            <span class="source-badge">${articles.length}</span>
+                    <div class="source-section">
+                        <div class="source-header" onclick="toggleSourceContent(this)">
+                            <div class="source-title">
+                                <span>📚 WALLABAG</span>
+                                <span class="source-badge">${articles.length}</span>
+                            </div>
+                            <span class="toggle-icon">▶</span>
                         </div>
-                        <span class="toggle-icon" id="toggle-wallabag">▶</span>
-                    </div>
-                    <div class="articles-list" id="section-wallabag">
+                        <div class="category-group">
                 `;
 
                 articles.forEach((article) => {
-                    const id = `wallabag-${article.id}`;
-                    html += `
-                    <div class="article-item" onclick="toggleArticle('${id}', event)">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" class="checkbox" id="${id}"
-                                   data-source="wallabag"
-                                   data-title="${escapeHtml(article.title)}"
-                                   data-words="${article.word_count}"
-                                   onchange="updateStats()">
-                        </div>
-                        <div class="article-content">
-                            <div class="article-title">${article.title}</div>
-                            <div class="article-meta">
-                                <span class="meta-item">📊 ${article.word_count} palabras</span>
-                                <span class="meta-item">📝 ${article.char_count} caracteres</span>
-                                ${article.tags.length > 0 ? `<span class="meta-item">🏷 ${article.tags.join(", ")}</span>` : ""}
-                            </div>
-                        </div>
-                    </div>
-                    `;
+                    html += renderArticle(article, "wallabag", "", "");
                 });
 
-                html += "</div></div>";
+                html += `</div></div>`;
                 return html;
             }
 
-            function renderFreshRSSSection() {
-                const categories = articlesData.freshrss.categories;
+            function renderFreshRSS() {
+                const categories = articlesData.freshrss.categories || [];
+                if (!categories.length) return "";
+
+                let totalArticles = 0;
+                categories.forEach((cat) => {
+                    cat.feeds.forEach((feed) => {
+                        totalArticles += feed.articles.length;
+                    });
+                });
+
                 let html = `
-                <div class="source-section">
-                    <div class="source-header" onclick="toggleSection('freshrss')">
-                        <div class="source-title">
-                            📰 FreshRSS
-                            <span class="source-badge">${categories.length} categorías</span>
+                    <div class="source-section">
+                        <div class="source-header" onclick="toggleSourceContent(this)">
+                            <div class="source-title">
+                                <span>📰 FRESHRSS</span>
+                                <span class="source-badge">${totalArticles}</span>
+                            </div>
+                            <span class="toggle-icon">▶</span>
                         </div>
-                        <span class="toggle-icon" id="toggle-freshrss">▶</span>
-                    </div>
-                    <div class="articles-list" id="section-freshrss">
                 `;
 
                 categories.forEach((category) => {
-                    const totalArticles = category.feeds.reduce(
-                        (sum, feed) => sum + feed.article_count,
-                        0,
-                    );
-
-                    html += `
-                    <div class="category-group">
-                        <div class="category-header" onclick="toggleCategory('${category.name}')">
-                            <div class="category-name">
-                                <span class="toggle-icon" id="toggle-cat-${category.name}">▶</span>
-                                📁 ${category.name}
-                            </div>
-                            <div class="category-count">${category.feeds.length} feeds • ${totalArticles} artículos</div>
-                        </div>
-                        <div class="articles-list" id="category-${category.name}">
-                    `;
-
-                    // Renderizar feeds dentro de la categoría
-                    category.feeds.forEach((feed) => {
-                        const feedId =
-                            `feed-${category.name}-${feed.id}`.replace(
-                                /[^a-zA-Z0-9-_]/g,
-                                "_",
-                            );
-
-                        html += `
-                        <div class="feed-group">
-                            <div class="feed-header" onclick="toggleFeed('${feedId}', event)">
-                                <div class="feed-info">
-                                    <div class="feed-checkbox-wrapper" onclick="event.stopPropagation()">
-                                        <input type="checkbox" class="feed-checkbox" id="checkbox-${feedId}"
-                                               data-feed-id="${feedId}"
-                                               onchange="toggleFeedSelection('${feedId}', '${category.name}', '${escapeHtml(feed.id)}')">
-                                    </div>
-                                    <div class="feed-name">📰 ${feed.title}</div>
-                                    <div class="feed-count">${feed.article_count} artículos</div>
-                                </div>
-                                <span class="feed-toggle" id="toggle-${feedId}">▶</span>
-                            </div>
-                            <div class="articles-list" id="${feedId}">
-                        `;
-
-                        // Renderizar artículos del feed
-                        feed.articles.forEach((article) => {
-                            const articleId =
-                                `article-${feedId}-${article.id}`.replace(
-                                    /[^a-zA-Z0-9-_]/g,
-                                    "_",
-                                );
-
-                            html += `
-                            <div class="article-item" onclick="toggleArticle('${articleId}', event)">
-                                <div class="checkbox-wrapper">
-                                    <input type="checkbox" class="checkbox article-checkbox" id="${articleId}"
-                                           data-source="freshrss"
-                                           data-category="${category.name}"
-                                           data-feed-id="${feedId}"
-                                           data-original-feed-id="${feed.id}"
-                                           data-article-id="${article.id}"
-                                           data-title="${escapeHtml(article.title)}"
-                                           data-words="${article.word_count}"
-                                           onchange="updateStats(); updateFeedCheckbox('${feedId}')">
-                                </div>
-                                <div class="article-content">
-                                    <div class="article-title">${article.title}</div>
-                                    <div class="article-meta">
-                                        <span class="meta-item">📊 ${article.word_count} palabras</span>
-                                        <span class="meta-item">📝 ${article.char_count} caracteres</span>
-                                        ${article.author ? `<span class="meta-item">✍️ ${article.author}</span>` : ""}
-                                    </div>
-                                </div>
-                            </div>
-                            `;
-                        });
-
-                        html += "</div></div>"; // Cerrar feed
-                    });
-
-                    html += "</div></div>"; // Cerrar categoría
+                    html += renderCategory(category);
                 });
 
-                html += "</div></div>";
+                html += `</div>`;
                 return html;
             }
 
-            function toggleSection(section) {
-                const content = document.getElementById(`section-${section}`);
-                const icon = document.getElementById(`toggle-${section}`);
-                content.classList.toggle("active");
-                icon.classList.toggle("active");
-            }
-
-            function toggleCategory(category) {
-                const content = document.getElementById(`category-${category}`);
-                const icon = document.getElementById(`toggle-cat-${category}`);
-                content.classList.toggle("active");
-                icon.classList.toggle("active");
-            }
-
-            function toggleFeed(feedId, event) {
-                // No toggle si el click es en el checkbox
-                if (event.target.type === "checkbox") return;
-
-                const content = document.getElementById(feedId);
-                const icon = document.getElementById(`toggle-${feedId}`);
-                content.classList.toggle("active");
-                icon.classList.toggle("active");
-            }
-
-            function toggleFeedSelection(feedId, category, originalFeedId) {
-                const feedCheckbox = document.getElementById(
-                    `checkbox-${feedId}`,
-                );
-                const isChecked = feedCheckbox.checked;
-
-                // Seleccionar/deseleccionar todos los artículos del feed
-                const articles = document.querySelectorAll(
-                    `input.article-checkbox[data-feed-id="${feedId}"]`,
-                );
-                articles.forEach((article) => {
-                    article.checked = isChecked;
+            function renderCategory(category) {
+                let totalArticles = 0;
+                category.feeds.forEach((feed) => {
+                    totalArticles += feed.articles.length;
                 });
 
-                updateStats();
+                let html = `
+                    <div class="category-group">
+                        <div class="category-header" onclick="toggleCategoryContent(this)">
+                            <div class="category-name">
+                                <span>📁 ${escapeHtml(category.name)}</span>
+                                <span class="category-count">${totalArticles}</span>
+                            </div>
+                            <span class="toggle-icon">▶</span>
+                        </div>
+                `;
+
+                category.feeds.forEach((feed) => {
+                    html += renderFeed(feed, category.name);
+                });
+
+                html += `</div>`;
+                return html;
             }
 
-            function updateFeedCheckbox(feedId) {
-                const feedCheckbox = document.getElementById(
-                    `checkbox-${feedId}`,
-                );
-                const articles = document.querySelectorAll(
-                    `input.article-checkbox[data-feed-id="${feedId}"]`,
+            function renderFeed(feed, categoryName) {
+                let html = `
+                    <div class="feed-group">
+                        <div class="feed-header" onclick="toggleFeedContent(this)">
+                            <div class="feed-info">
+                                <div class="feed-checkbox-wrapper" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="feed-checkbox"
+                                           onchange="toggleFeedArticles(this, '${categoryName}', '${feed.id}')" />
+                                </div>
+                                <span class="feed-name">${escapeHtml(feed.title)}</span>
+                                <span class="feed-count">${feed.articles.length}</span>
+                            </div>
+                            <span class="feed-toggle">▶</span>
+                        </div>
+                        <div class="articles-list">
+                `;
+
+                feed.articles.forEach((article) => {
+                    html += renderArticle(
+                        article,
+                        "freshrss",
+                        categoryName,
+                        feed.id,
+                    );
+                });
+
+                html += `</div></div>`;
+                return html;
+            }
+
+            function renderArticle(article, source, categoryName, feedId) {
+                const articleId =
+                    `${source}_${categoryName}_${feedId}_${article.id}`.replace(
+                        /[^a-zA-Z0-9_-]/g,
+                        "_",
+                    );
+
+                return `
+                    <div class="article-item" id="article_${articleId}">
+                        <div class="article-main">
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" class="checkbox"
+                                       id="${articleId}"
+                                       data-source="${source}"
+                                       data-category="${escapeHtml(categoryName)}"
+                                       data-original-feed-id="${escapeHtml(feedId)}"
+                                       data-article-id="${escapeHtml(article.id)}"
+                                       data-word-count="${article.word_count || 0}"
+                                       onchange="toggleArticle(this, '${articleId}', '${source}', '${escapeHtml(article.id)}', '${escapeHtml(categoryName)}', '${escapeHtml(feedId)}', '${escapeHtml(article.title)}')" />
+                            </div>
+                            <div class="article-content">
+                                <div class="article-title">${escapeHtml(article.title)}</div>
+                                <div class="article-meta">
+                                    <span class="meta-item">📊 ${(article.word_count || 0).toLocaleString()} palabras</span>
+                                    <span class="meta-item">📝 ${(article.char_count || 0).toLocaleString()} caracteres</span>
+                                    ${article.published ? `<span class="meta-item">📅 ${new Date(article.published * 1000).toLocaleDateString()}</span>` : ""}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="article-options">
+                            <div class="article-options-title">⚙ Opciones de conversión</div>
+                            <div class="article-options-grid">
+                                <div class="article-option">
+                                    <label>🎤 Voz</label>
+                                    <select id="voice_${articleId}" onchange="updateArticleOption('${articleId}', 'voice', this.value)">
+                                        <optgroup label="Español">
+                                            <option value="es-ES-AlvaroNeural">Alvaro (España, H)</option>
+                                            <option value="es-ES-ElviraNeural">Elvira (España, M)</option>
+                                            <option value="es-MX-DaliaNeural">Dalia (México, M)</option>
+                                            <option value="es-MX-JorgeNeural">Jorge (México, H)</option>
+                                        </optgroup>
+                                        <optgroup label="Inglés">
+                                            <option value="en-US-GuyNeural">Guy (US, H)</option>
+                                            <option value="en-US-AriaNeural">Aria (US, M)</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="article-option">
+                                    <label>🌍 Idioma</label>
+                                    <select id="lang_${articleId}" onchange="updateArticleOption('${articleId}', 'language', this.value)">
+                                        <option value="es">Español</option>
+                                        <option value="en">English</option>
+                                        <option value="fr">Français</option>
+                                        <option value="de">Deutsch</option>
+                                    </select>
+                                </div>
+                                <div class="article-option">
+                                    <div class="article-option-checkbox">
+                                        <input type="checkbox" id="youtube_${articleId}"
+                                               onchange="updateArticleOption('${articleId}', 'include_youtube', this.checked)">
+                                        <label for="youtube_${articleId}">📺 Incluir YouTube</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function toggleArticle(
+                checkbox,
+                articleId,
+                source,
+                originalId,
+                categoryName,
+                feedId,
+                title,
+            ) {
+                const articleEl = document.getElementById(
+                    `article_${articleId}`,
                 );
 
-                if (articles.length === 0) return;
+                if (checkbox.checked) {
+                    articleEl.classList.add("selected");
 
-                const checkedArticles = Array.from(articles).filter(
-                    (a) => a.checked,
-                );
+                    // Inicializar opciones con valores por defecto
+                    const defaultVoice =
+                        document.getElementById("default-voice").value;
+                    const defaultLanguage =
+                        document.getElementById("default-language").value;
+                    const defaultYouTube =
+                        document.getElementById("default-youtube").checked;
+                    const ttsEngine =
+                        document.getElementById("tts-engine").value;
 
-                if (checkedArticles.length === 0) {
-                    feedCheckbox.checked = false;
-                    feedCheckbox.indeterminate = false;
-                } else if (checkedArticles.length === articles.length) {
-                    feedCheckbox.checked = true;
-                    feedCheckbox.indeterminate = false;
+                    document.getElementById(`voice_${articleId}`).value =
+                        defaultVoice;
+                    document.getElementById(`lang_${articleId}`).value =
+                        defaultLanguage;
+                    document.getElementById(`youtube_${articleId}`).checked =
+                        defaultYouTube;
+
+                    selectedArticlesData[articleId] = {
+                        source,
+                        originalId,
+                        categoryName,
+                        feedId,
+                        title,
+                        voice: defaultVoice,
+                        language: defaultLanguage,
+                        include_youtube: defaultYouTube,
+                        tts_engine: ttsEngine,
+                    };
                 } else {
-                    feedCheckbox.checked = false;
-                    feedCheckbox.indeterminate = true;
+                    articleEl.classList.remove("selected");
+                    delete selectedArticlesData[articleId];
                 }
+
+                updateCounts();
             }
 
-            function toggleArticle(id, event) {
-                if (event.target.type === "checkbox") return;
-                const checkbox = document.getElementById(id);
-                checkbox.checked = !checkbox.checked;
-                updateStats();
-
-                // Actualizar el checkbox del feed padre
-                const feedId = checkbox.dataset.feedId;
-                if (feedId) {
-                    updateFeedCheckbox(feedId);
+            function updateArticleOption(articleId, option, value) {
+                if (selectedArticlesData[articleId]) {
+                    selectedArticlesData[articleId][option] = value;
                 }
             }
 
             function selectAll() {
-                document.querySelectorAll(".checkbox").forEach((cb) => {
-                    cb.checked = true;
-                });
-                document.querySelectorAll(".feed-checkbox").forEach((cb) => {
-                    cb.checked = true;
-                    cb.indeterminate = false;
-                });
-                updateStats();
+                document
+                    .querySelectorAll(".checkbox:not(:checked)")
+                    .forEach((cb) => cb.click());
             }
 
             function deselectAll() {
-                document.querySelectorAll(".checkbox").forEach((cb) => {
-                    cb.checked = false;
-                });
-                document.querySelectorAll(".feed-checkbox").forEach((cb) => {
-                    cb.checked = false;
-                    cb.indeterminate = false;
-                });
-                updateStats();
+                document
+                    .querySelectorAll(".checkbox:checked")
+                    .forEach((cb) => cb.click());
             }
 
-            function updateStats() {
-                const checkboxes =
-                    document.querySelectorAll(".checkbox:checked");
-                const count = checkboxes.length;
+            function toggleFeedArticles(checkbox, categoryName, feedId) {
+                const feedGroup = checkbox.closest(".feed-group");
+                const articleCheckboxes = feedGroup.querySelectorAll(
+                    ".articles-list .checkbox",
+                );
+
+                articleCheckboxes.forEach((cb) => {
+                    if (checkbox.checked && !cb.checked) {
+                        cb.click();
+                    } else if (!checkbox.checked && cb.checked) {
+                        cb.click();
+                    }
+                });
+            }
+
+            function toggleSourceContent(header) {
+                const icon = header.querySelector(".toggle-icon");
+                const content = header.nextElementSibling;
+
+                while (
+                    content &&
+                    !content.classList.contains("source-header")
+                ) {
+                    content.style.display =
+                        content.style.display === "none" ? "block" : "none";
+                    break;
+                }
+
+                icon.classList.toggle("active");
+            }
+
+            function toggleCategoryContent(header) {
+                const icon = header.querySelector(".toggle-icon");
+                const feeds =
+                    header.parentElement.querySelectorAll(".feed-group");
+
+                feeds.forEach((feed) => {
+                    feed.style.display =
+                        feed.style.display === "none" ? "block" : "none";
+                });
+
+                icon.classList.toggle("active");
+            }
+
+            function toggleFeedContent(header) {
+                const icon = header.querySelector(".feed-toggle");
+                const articles = header.nextElementSibling;
+
+                articles.classList.toggle("active");
+                icon.classList.toggle("active");
+            }
+
+            function updateCounts() {
+                const count =
+                    document.querySelectorAll(".checkbox:checked").length;
                 let totalWords = 0;
 
-                checkboxes.forEach((cb) => {
-                    totalWords += parseInt(cb.dataset.words || 0);
+                document.querySelectorAll(".checkbox:checked").forEach((cb) => {
+                    totalWords += parseInt(cb.dataset.wordCount || 0);
                 });
 
                 document.getElementById("selectedCount").textContent = count;
-                document.getElementById("actionSelectedCount").textContent =
-                    count;
                 document.getElementById("estimatedWords").textContent =
                     totalWords.toLocaleString();
+                document.getElementById("actionCount").textContent = count;
                 document.getElementById("actionWords").textContent =
                     totalWords.toLocaleString();
-
                 document.getElementById("actionPanel").style.display =
                     count > 0 ? "block" : "none";
 
@@ -952,75 +1208,8 @@
                 });
             }
 
-            function getSelectionData() {
-                const selected = {
-                    wallabag: [],
-                    freshrss: {
-                        categories: {},
-                    },
-                };
-
-                document.querySelectorAll(".checkbox:checked").forEach((cb) => {
-                    const source = cb.dataset.source;
-
-                    if (source === "wallabag") {
-                        const articleId = cb.id.replace("wallabag-", "");
-                        const article = articlesData.wallabag.articles.find(
-                            (a) => a.id == articleId,
-                        );
-                        if (article) {
-                            selected.wallabag.push(article);
-                        }
-                    } else if (source === "freshrss") {
-                        const category = cb.dataset.category;
-                        const originalFeedId = cb.dataset.originalFeedId;
-                        const articleId = cb.dataset.articleId;
-
-                        if (!selected.freshrss.categories[category]) {
-                            selected.freshrss.categories[category] = {};
-                        }
-                        if (
-                            !selected.freshrss.categories[category][
-                                originalFeedId
-                            ]
-                        ) {
-                            selected.freshrss.categories[category][
-                                originalFeedId
-                            ] = [];
-                        }
-
-                        // Buscar el artículo en los datos
-                        const categoryData =
-                            articlesData.freshrss.categories.find(
-                                (c) => c.name === category,
-                            );
-                        if (categoryData) {
-                            const feedData = categoryData.feeds.find(
-                                (f) => f.id === originalFeedId,
-                            );
-                            if (feedData) {
-                                const article = feedData.articles.find(
-                                    (a) => a.id === articleId,
-                                );
-                                if (article) {
-                                    selected.freshrss.categories[category][
-                                        originalFeedId
-                                    ].push(article);
-                                }
-                            }
-                        }
-                    }
-                });
-
-                return selected;
-            }
-
-            let progressInterval = null;
-
             async function saveToServer() {
-                const selected = getSelectionData();
-                const count =
-                    document.querySelectorAll(".checkbox:checked").length;
+                const count = Object.keys(selectedArticlesData).length;
 
                 if (count === 0) {
                     alert("⚠ No hay artículos seleccionados");
@@ -1028,7 +1217,96 @@
                 }
 
                 try {
-                    // Mostrar modal de progreso
+                    const selection = {
+                        options: {
+                            tts_engine:
+                                document.getElementById("tts-engine").value,
+                            default_voice:
+                                document.getElementById("default-voice").value,
+                            default_language:
+                                document.getElementById("default-language")
+                                    .value,
+                            include_youtube:
+                                document.getElementById("default-youtube")
+                                    .checked,
+                            generate_feed: true,
+                            skip_existing: true,
+                        },
+                        wallabag: [],
+                        freshrss: {
+                            categories: {},
+                        },
+                    };
+
+                    // Procesar artículos seleccionados
+                    for (const [articleId, data] of Object.entries(
+                        selectedArticlesData,
+                    )) {
+                        if (data.source === "wallabag") {
+                            const fullArticle =
+                                articlesData.wallabag.articles.find(
+                                    (a) => a.id == data.originalId,
+                                );
+                            if (fullArticle) {
+                                selection.wallabag.push({
+                                    id: fullArticle.id,
+                                    title: fullArticle.title,
+                                    voice: data.voice,
+                                    language: data.language,
+                                    include_youtube: data.include_youtube,
+                                    tts_engine: data.tts_engine,
+                                });
+                            }
+                        } else if (data.source === "freshrss") {
+                            if (
+                                !selection.freshrss.categories[
+                                    data.categoryName
+                                ]
+                            ) {
+                                selection.freshrss.categories[
+                                    data.categoryName
+                                ] = {};
+                            }
+                            if (
+                                !selection.freshrss.categories[
+                                    data.categoryName
+                                ][data.feedId]
+                            ) {
+                                selection.freshrss.categories[
+                                    data.categoryName
+                                ][data.feedId] = [];
+                            }
+
+                            const category =
+                                articlesData.freshrss.categories.find(
+                                    (c) => c.name === data.categoryName,
+                                );
+                            if (category) {
+                                const feed = category.feeds.find(
+                                    (f) => f.id === data.feedId,
+                                );
+                                if (feed) {
+                                    const fullArticle = feed.articles.find(
+                                        (a) => a.id === data.originalId,
+                                    );
+                                    if (fullArticle) {
+                                        selection.freshrss.categories[
+                                            data.categoryName
+                                        ][data.feedId].push({
+                                            id: fullArticle.id,
+                                            title: fullArticle.title,
+                                            voice: data.voice,
+                                            language: data.language,
+                                            include_youtube:
+                                                data.include_youtube,
+                                            tts_engine: data.tts_engine,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     showProgressModal();
                     updateProgress(0, count, "Iniciando conversión...");
 
@@ -1037,13 +1315,12 @@
                         headers: {
                             "Content-Type": "application/json",
                         },
-                        body: JSON.stringify(selected),
+                        body: JSON.stringify(selection),
                     });
 
                     const result = await response.json();
 
                     if (result.success) {
-                        // Iniciar polling del estado
                         startProgressPolling();
                     } else {
                         hideProgressModal();
@@ -1052,11 +1329,11 @@
                 } catch (error) {
                     console.error("Error:", error);
                     hideProgressModal();
-                    alert(
-                        `✗ Error de conexión con el servidor.\n\nVerifica que el servidor esté corriendo en el contenedor.`,
-                    );
+                    alert("✗ Error de conexión con el servidor.");
                 }
             }
+
+            let progressInterval = null;
 
             function showProgressModal() {
                 document.getElementById("progressModal").style.display = "flex";
@@ -1082,7 +1359,6 @@
             }
 
             async function startProgressPolling() {
-                // Hacer polling cada 1 segundo
                 progressInterval = setInterval(async () => {
                     try {
                         const response = await fetch("/api/conversion-status");
@@ -1094,7 +1370,6 @@
                             status.current_article,
                         );
 
-                        // Si terminó, detener polling
                         if (!status.running) {
                             clearInterval(progressInterval);
                             progressInterval = null;
@@ -1119,16 +1394,50 @@
             }
 
             function downloadSelectionJson() {
-                const selected = getSelectionData();
-                const count =
-                    document.querySelectorAll(".checkbox:checked").length;
+                const count = Object.keys(selectedArticlesData).length;
 
                 if (count === 0) {
                     alert("⚠ No hay artículos seleccionados");
                     return;
                 }
 
-                const blob = new Blob([JSON.stringify(selected, null, 2)], {
+                const selection = {
+                    options: {
+                        tts_engine: document.getElementById("tts-engine").value,
+                        default_voice:
+                            document.getElementById("default-voice").value,
+                        default_language:
+                            document.getElementById("default-language").value,
+                        include_youtube:
+                            document.getElementById("default-youtube").checked,
+                        generate_feed: true,
+                    },
+                    wallabag: [],
+                    freshrss: { categories: {} },
+                };
+
+                // Similar al saveToServer pero para descargar
+                for (const [articleId, data] of Object.entries(
+                    selectedArticlesData,
+                )) {
+                    if (data.source === "wallabag") {
+                        const fullArticle = articlesData.wallabag.articles.find(
+                            (a) => a.id == data.originalId,
+                        );
+                        if (fullArticle) {
+                            selection.wallabag.push({
+                                id: fullArticle.id,
+                                title: fullArticle.title,
+                                voice: data.voice,
+                                language: data.language,
+                                include_youtube: data.include_youtube,
+                            });
+                        }
+                    }
+                    // Similar para freshrss...
+                }
+
+                const blob = new Blob([JSON.stringify(selection, null, 2)], {
                     type: "application/json",
                 });
                 const url = URL.createObjectURL(blob);
