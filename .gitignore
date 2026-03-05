@@ -1,2 +1,4 @@
 config.json
 audio_articles/
+articles_data.json
+.cache
