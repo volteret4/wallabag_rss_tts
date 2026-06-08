@@ -718,27 +718,26 @@
             .progress-bar-container {
                 background: var(--bg-tertiary);
                 border-radius: 4px;
-                height: 30px;
-                margin-bottom: 1rem;
+                height: 22px;
+                margin-bottom: 0.4rem;
                 overflow: hidden;
                 border: 1px solid var(--border);
             }
 
             .progress-bar {
                 height: 100%;
-                background: linear-gradient(
-                    90deg,
-                    var(--accent-dim),
-                    var(--accent)
-                );
+                background: linear-gradient(90deg, var(--accent-dim), var(--accent));
                 width: 0%;
                 transition: width 0.3s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: var(--bg-primary);
+            }
+
+            .progress-text {
+                text-align: center;
                 font-family: "Space Mono", monospace;
+                font-size: 0.85rem;
                 font-weight: 700;
+                color: var(--accent);
+                margin-bottom: 1rem;
             }
 
             .progress-message {
@@ -1049,6 +1048,17 @@
                 border-radius: 2px;
             }
             .feed-picker-btns { display: flex; gap: 0.5rem; justify-content: flex-end; }
+            .picker-type-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+            .picker-type-row label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; cursor: pointer; }
+            .picker-section { margin-bottom: 0.8rem; }
+            .picker-section label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+            .picker-common { display: grid; grid-template-columns: 1fr 1fr 80px; gap: 0.5rem; margin-top: 0.8rem; }
+            .picker-common label { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.2rem; }
+            .picker-common input, .picker-common select { width: 100%; padding: 0.35rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 2px; font-size: 0.85rem; }
+            .wb-tag-select { width: 100%; height: 120px; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 2px; font-size: 0.85rem; }
+            .picker-name-row { margin: 0.8rem 0 0; }
+            .picker-name-row label { font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem; }
+            .picker-name-row input { width: 100%; padding: 0.35rem; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 2px; font-size: 0.85rem; }
         </style>
     </head>
     <body>
@@ -1177,10 +1187,9 @@
             <div class="progress-content">
                 <div class="progress-title">CONVERSIÓN EN PROGRESO</div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar" id="progressBar">
-                        <span id="progressText">0%</span>
-                    </div>
+                    <div class="progress-bar" id="progressBar"></div>
                 </div>
+                <div class="progress-text" id="progressText">0%</div>
                 <div class="progress-message">
                     <span class="progress-spinner"></span>
                     <span id="progressMessage">Iniciando...</span>
@@ -1959,117 +1968,120 @@
                 } catch(e) { alert('Error de conexión al cargar config'); }
             }
 
-            function renderConfig(cfg) {
-                // Wallabag
-                const wb = cfg.wallabag || {};
-                document.getElementById('cfg-wb-url').value      = wb.url || '';
-                document.getElementById('cfg-wb-clientid').value = wb.client_id || '';
-                document.getElementById('cfg-wb-secret').value   = wb.client_secret || '';
-                document.getElementById('cfg-wb-user').value     = wb.username || '';
-                document.getElementById('cfg-wb-pass').value     = wb.password || '';
-                document.getElementById('cfg-wb-limit').value    = wb.limit ?? 10;
-
-                // FreshRSS
-                const fr = cfg.freshrss || {};
-                document.getElementById('cfg-fr-url').value     = fr.url || '';
-                document.getElementById('cfg-fr-user').value    = fr.username || '';
-                document.getElementById('cfg-fr-pass').value    = fr.password || '';
-                document.getElementById('cfg-fr-limit').value   = fr.limit ?? 10;
-                document.getElementById('cfg-fr-unread').checked = !!fr.unread_only;
-
-                // Feeds
-                const feeds = fr.feeds || [];
-                renderFeedsTable(feeds);
-            }
 
             function renderFeedsTable(feeds) {
                 const tbody = document.getElementById('feeds-tbody');
-                tbody.innerHTML = feeds.map((f, i) => `
+                tbody.innerHTML = feeds.map((f, i) => {
+                    const isWb = f.source === 'wallabag';
+                    const filterCell = isWb
+                        ? (f.filter === 'tag'
+                            ? `<td><input type="text" value="${escapeHtml((f.tags||[]).join(', '))}" placeholder="tag1, tag2" style="width:120px" onchange="updateFeed(${i},'tags',this.value.split(',').map(t=>t.trim()).filter(Boolean))"/></td>`
+                            : `<td><input type="number" value="${f.min_words||0}" min="0" style="width:80px" onchange="updateFeed(${i},'min_words',+this.value)"/> palabras</td>`)
+                        : `<td><input type="text" value="${escapeHtml(f.id||'')}" onchange="updateFeed(${i},'id',this.value)" style="width:110px"/></td>`;
+                    const ytCell = isWb ? `<td style="text-align:center;color:var(--text-dim)">—</td>`
+                        : `<td style="text-align:center"><input type="checkbox" ${f.include_youtube?'checked':''} onchange="updateFeed(${i},'include_youtube',this.checked)"/></td>`;
+                    const badge = isWb
+                        ? `<span style="font-size:0.65rem;color:var(--accent);font-family:monospace">WB/${f.filter==='tag'?'🏷':'📏'}</span>`
+                        : `<span style="font-size:0.65rem;color:var(--text-dim);font-family:monospace">RSS</span>`;
+                    return `
                     <tr id="feed-row-${i}">
-                        <td><input type="text" value="${escapeHtml(f.id || '')}" onchange="updateFeed(${i},'id',this.value)" style="width:90px"/></td>
-                        <td><input type="text" value="${escapeHtml(f.name || '')}" onchange="updateFeed(${i},'name',this.value)"/></td>
-                        <td>
-                            <select onchange="updateFeed(${i},'voice',this.value)">
-                                ${voiceOptions(f.voice)}
-                            </select>
-                        </td>
-                        <td style="text-align:center">
-                            <input type="checkbox" ${f.include_youtube ? 'checked' : ''} onchange="updateFeed(${i},'include_youtube',this.checked)"/>
-                        </td>
-                        <td><input type="number" value="${f.limit ?? 10}" min="1" max="100" style="width:60px" onchange="updateFeed(${i},'limit',+this.value)"/></td>
+                        <td>${badge}</td>
+                        <td><input type="text" value="${escapeHtml(f.name||'')}" onchange="updateFeed(${i},'name',this.value)"/></td>
+                        ${filterCell}
+                        <td><select onchange="updateFeed(${i},'voice',this.value)">${voiceOptions(f.voice)}</select></td>
+                        ${ytCell}
+                        <td><input type="number" value="${f.limit??10}" min="1" max="200" style="width:55px" onchange="updateFeed(${i},'limit',+this.value)"/></td>
                         <td><button class="btn-danger" onclick="removeFeed(${i})">✕</button></td>
-                    </tr>
-                `).join('');
+                    </tr>`;
+                }).join('');
             }
 
             let currentFeeds = [];
             function updateFeed(i, key, val) { currentFeeds[i][key] = val; }
-            function removeFeed(i) {
-                currentFeeds.splice(i, 1);
-                renderFeedsTable(currentFeeds);
-            }
-            function addFeed() {
-                const picker = document.getElementById('feedPicker');
-                const sel = document.getElementById('feedPickerSelect');
-                sel.innerHTML = '<option value="">— Seleccionar feed —</option>';
+            function removeFeed(i) { currentFeeds.splice(i, 1); renderFeedsTable(currentFeeds); }
 
-                // Populate from articlesData if available
-                if (articlesData && articlesData.freshrss && articlesData.freshrss.categories) {
+            function addFeed() {
+                // Reset picker
+                document.querySelector('input[name="feedType"][value="freshrss"]').checked = true;
+                onPickerTypeChange();
+                document.getElementById('pickerName').value = '';
+                document.getElementById('pickerLimit').value = '10';
+
+                // Populate FreshRSS select
+                const sel = document.getElementById('feedPickerSelect');
+                sel.innerHTML = '<option value="">— Seleccionar —</option>';
+                if (articlesData?.freshrss?.categories) {
                     articlesData.freshrss.categories.forEach(cat => {
-                        if (!cat.feeds || !cat.feeds.length) return;
-                        const group = document.createElement('optgroup');
-                        group.label = '📁 ' + cat.name;
-                        cat.feeds.forEach(feed => {
-                            const opt = document.createElement('option');
-                            opt.value = JSON.stringify({id: feed.id, name: feed.title});
-                            opt.textContent = feed.title + ' (' + feed.articles.length + ' art.)';
-                            group.appendChild(opt);
+                        if (!cat.feeds?.length) return;
+                        const g = document.createElement('optgroup');
+                        g.label = '📁 ' + cat.name;
+                        cat.feeds.forEach(f => {
+                            const o = document.createElement('option');
+                            o.value = JSON.stringify({id: f.id, name: f.title});
+                            o.textContent = f.title + ' (' + (f.articles?.length||0) + ')';
+                            g.appendChild(o);
                         });
-                        sel.appendChild(group);
+                        sel.appendChild(g);
                     });
                 }
+                const mg = document.createElement('optgroup'); mg.label = '✏ Manual';
+                const mo = document.createElement('option'); mo.value='__manual__'; mo.textContent='Introducir ID manualmente';
+                mg.appendChild(mo); sel.appendChild(mg);
 
-                // Also allow manual entry
-                const manualGroup = document.createElement('optgroup');
-                manualGroup.label = '✏ Manual';
-                const manualOpt = document.createElement('option');
-                manualOpt.value = '__manual__';
-                manualOpt.textContent = 'Introducir ID manualmente';
-                manualGroup.appendChild(manualOpt);
-                sel.appendChild(manualGroup);
+                // Populate Wallabag tags
+                const tagSel = document.getElementById('wbTagSelect');
+                tagSel.innerHTML = '';
+                const allTags = new Set();
+                articlesData?.wallabag?.articles?.forEach(a => (a.tags||[]).forEach(t => allTags.add(t)));
+                [...allTags].sort().forEach(t => {
+                    const o = document.createElement('option'); o.value = t; o.textContent = t;
+                    tagSel.appendChild(o);
+                });
 
-                picker.classList.add('open');
+                document.getElementById('feedPicker').classList.add('open');
+            }
+
+            function onPickerTypeChange() {
+                const type = document.querySelector('input[name="feedType"]:checked')?.value;
+                document.getElementById('picker-freshrss').style.display  = type==='freshrss'      ? '' : 'none';
+                document.getElementById('picker-wb-tag').style.display    = type==='wallabag_tag'  ? '' : 'none';
+                document.getElementById('picker-wb-words').style.display  = type==='wallabag_words'? '' : 'none';
             }
 
             function confirmAddFeed() {
-                const sel = document.getElementById('feedPickerSelect');
-                const val = sel.value;
-                if (!val) return;
-
+                const type = document.querySelector('input[name="feedType"]:checked')?.value;
+                const name = document.getElementById('pickerName').value.trim();
+                const voice = document.getElementById('pickerVoice').value;
+                const limit = +document.getElementById('pickerLimit').value || 10;
                 let feed;
-                if (val === '__manual__') {
-                    feed = {id: 'feed/', name: 'Nuevo feed', voice: 'es-ES-AlvaroNeural', include_youtube: false, limit: 10};
+
+                if (type === 'freshrss') {
+                    const val = document.getElementById('feedPickerSelect').value;
+                    if (!val) return;
+                    if (val === '__manual__') {
+                        feed = {source:'freshrss', id:'feed/', name: name||'Nuevo feed', voice, include_youtube:false, limit};
+                    } else {
+                        const p = JSON.parse(val);
+                        feed = {source:'freshrss', id:p.id, name: name||p.name, voice, include_youtube:false, limit};
+                    }
+                } else if (type === 'wallabag_tag') {
+                    const tags = [...document.getElementById('wbTagSelect').selectedOptions].map(o=>o.value);
+                    feed = {source:'wallabag', filter:'tag', tags, name: name||(tags.join(', ')||'Wallabag tags'), voice, limit};
                 } else {
-                    const parsed = JSON.parse(val);
-                    feed = {id: parsed.id, name: parsed.name, voice: 'es-ES-AlvaroNeural', include_youtube: false, limit: 10};
+                    const min = +document.getElementById('wbMinWords').value || 500;
+                    feed = {source:'wallabag', filter:'words', min_words:min, name: name||`>${min} palabras`, voice, limit};
                 }
+
                 currentFeeds.push(feed);
                 renderFeedsTable(currentFeeds);
                 closeFeedPicker();
             }
 
-            function closeFeedPicker() {
-                document.getElementById('feedPicker').classList.remove('open');
-            }
-
-            // Sync currentFeeds when feeds tab is opened
-            document.addEventListener('DOMContentLoaded', () => {
-                document.querySelector('[data-tab="feeds"]').addEventListener('click', () => {
-                    // Already rendered, currentFeeds is live
-                });
-            });
+            function closeFeedPicker() { document.getElementById('feedPicker').classList.remove('open'); }
 
             function getConfigFromForm() {
+                const wbFeeds = currentFeeds.filter(f => f.source === 'wallabag');
+                const frFeeds = currentFeeds.filter(f => f.source !== 'wallabag').map(({source,...f})=>f);
                 return {
                     wallabag: {
                         url:           document.getElementById('cfg-wb-url').value.trim(),
@@ -2078,6 +2090,7 @@
                         username:      document.getElementById('cfg-wb-user').value.trim(),
                         password:      document.getElementById('cfg-wb-pass').value,
                         limit:         +document.getElementById('cfg-wb-limit').value,
+                        feeds:         wbFeeds.map(({source,...f})=>f),
                     },
                     freshrss: {
                         url:         document.getElementById('cfg-fr-url').value.trim(),
@@ -2085,7 +2098,7 @@
                         password:    document.getElementById('cfg-fr-pass').value,
                         limit:       +document.getElementById('cfg-fr-limit').value,
                         unread_only: document.getElementById('cfg-fr-unread').checked,
-                        feeds:       currentFeeds,
+                        feeds:       frFeeds,
                     }
                 };
             }
@@ -2114,9 +2127,6 @@
                 }
             }
 
-            // Patch renderConfig to also set currentFeeds
-            const _origRenderConfig = renderConfig;
-            // Override to keep currentFeeds in sync
             function renderConfig(cfg) {
                 const wb = cfg.wallabag || {};
                 document.getElementById('cfg-wb-url').value      = wb.url || '';
@@ -2131,7 +2141,11 @@
                 document.getElementById('cfg-fr-pass').value    = fr.password || '';
                 document.getElementById('cfg-fr-limit').value   = fr.limit ?? 10;
                 document.getElementById('cfg-fr-unread').checked = !!fr.unread_only;
-                currentFeeds = JSON.parse(JSON.stringify(fr.feeds || []));
+
+                // Merge freshrss.feeds + wallabag.feeds into currentFeeds with source tag
+                const frFeeds = (fr.feeds || []).map(f => ({source:'freshrss', ...f}));
+                const wbFeeds = (wb.feeds || []).map(f => ({source:'wallabag', ...f}));
+                currentFeeds = JSON.parse(JSON.stringify([...frFeeds, ...wbFeeds]));
                 renderFeedsTable(currentFeeds);
             }
 
@@ -2140,10 +2154,57 @@
         </script>
 
         <!-- Feed Picker -->
-        <div class="feed-picker" id="feedPicker">
-            <h3>📡 Añadir feed</h3>
-            <select id="feedPickerSelect" size="8" style="height:200px"></select>
-            <div class="feed-picker-btns">
+        <div class="feed-picker" id="feedPicker" style="min-width:420px">
+            <h3>📡 Añadir feed / fuente</h3>
+            <div class="picker-type-row">
+                <label><input type="radio" name="feedType" value="freshrss" checked onchange="onPickerTypeChange()"> 📰 FreshRSS</label>
+                <label><input type="radio" name="feedType" value="wallabag_tag" onchange="onPickerTypeChange()"> 📚 Wallabag por tags</label>
+                <label><input type="radio" name="feedType" value="wallabag_words" onchange="onPickerTypeChange()"> 📚 Wallabag por palabras</label>
+            </div>
+
+            <!-- FreshRSS -->
+            <div id="picker-freshrss" class="picker-section">
+                <label>Selecciona un feed:</label>
+                <select id="feedPickerSelect" size="7"></select>
+            </div>
+
+            <!-- Wallabag tags -->
+            <div id="picker-wb-tag" class="picker-section" style="display:none">
+                <label>Tags (Ctrl+clic para seleccionar varios):</label>
+                <select id="wbTagSelect" class="wb-tag-select" multiple></select>
+            </div>
+
+            <!-- Wallabag min words -->
+            <div id="picker-wb-words" class="picker-section" style="display:none">
+                <label>Mínimo de palabras:</label>
+                <input type="number" id="wbMinWords" value="500" min="1" style="width:140px;padding:0.35rem;background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);border-radius:2px"/>
+            </div>
+
+            <!-- Common: name, voice, limit -->
+            <div class="picker-name-row">
+                <label>Nombre del feed (opcional):</label>
+                <input type="text" id="pickerName" placeholder="Se genera automáticamente si está vacío"/>
+            </div>
+            <div class="picker-common">
+                <div>
+                    <label>Voz TTS:</label>
+                    <select id="pickerVoice">
+                        <option value="es-ES-AlvaroNeural">Álvaro (ES)</option>
+                        <option value="es-ES-ElviraNeural">Elvira (ES)</option>
+                        <option value="es-MX-JorgeNeural">Jorge (MX)</option>
+                        <option value="es-MX-DaliaNeural">Dalia (MX)</option>
+                        <option value="en-US-GuyNeural">Guy (EN)</option>
+                        <option value="en-US-JennyNeural">Jenny (EN)</option>
+                    </select>
+                </div>
+                <div></div>
+                <div>
+                    <label>Límite:</label>
+                    <input type="number" id="pickerLimit" value="10" min="1" max="200"/>
+                </div>
+            </div>
+
+            <div class="feed-picker-btns" style="margin-top:1rem">
                 <button class="btn" onclick="closeFeedPicker()">Cancelar</button>
                 <button class="btn btn-primary" onclick="confirmAddFeed()">Añadir</button>
             </div>
@@ -2225,10 +2286,11 @@
                         <table class="feeds-table">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
+                                    <th>Tipo</th>
                                     <th>Nombre</th>
+                                    <th>ID / Filtro</th>
                                     <th>Voz</th>
-                                    <th>YouTube</th>
+                                    <th>YT</th>
                                     <th>Límite</th>
                                     <th></th>
                                 </tr>
