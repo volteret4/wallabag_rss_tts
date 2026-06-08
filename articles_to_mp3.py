@@ -1133,16 +1133,30 @@ class PodcastFeedGenerator:
 
         self.episodes.append(episode)
 
-    def generate_rss(self, output_file="podcast.xml"):
+    def generate_rss(self, output_file="podcast.xml", feed_path="/podcast"):
         """Genera el archivo RSS del podcast"""
-        rss = Element('rss', {'version': '2.0', 'xmlns:itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd'})
+        rss = Element('rss', {
+            'version': '2.0',
+            'xmlns:itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
+            'xmlns:atom': 'http://www.w3.org/2005/Atom',
+        })
         channel = SubElement(rss, 'channel')
+
+        # Self-reference required by Audiobookshelf and other strict feed readers
+        feed_url = f"{self.base_url}{feed_path}"
+        SubElement(channel, 'atom:link', {
+            'href': feed_url,
+            'rel': 'self',
+            'type': 'application/rss+xml',
+        })
 
         SubElement(channel, 'title').text = self.title
         SubElement(channel, 'description').text = self.description
         SubElement(channel, 'link').text = self.base_url
         SubElement(channel, 'language').text = 'es'
         SubElement(channel, 'lastBuildDate').text = datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')
+        SubElement(channel, 'itunes:explicit').text = 'no'
+        SubElement(channel, 'itunes:type').text = 'episodic'
 
         # AÃƒÆ’Ã‚Â±adir autor si estÃƒÆ’Ã‚Â¡ disponible
         if self.author:
