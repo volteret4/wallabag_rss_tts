@@ -431,6 +431,59 @@
                 gap: 0.25rem;
             }
 
+            .article-tags {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.4rem;
+                margin-top: 0.4rem;
+            }
+
+            .article-tag {
+                font-size: 0.7rem;
+                padding: 0.15rem 0.5rem;
+                background: var(--bg-quaternary);
+                border: 1px solid var(--border);
+                color: var(--text-dim);
+                border-radius: 20px;
+                font-family: "Space Mono", monospace;
+            }
+
+            .article-link {
+                color: var(--accent);
+                text-decoration: none;
+                margin-left: 0.5rem;
+                font-size: 0.85rem;
+                opacity: 0.6;
+                vertical-align: middle;
+            }
+
+            .article-link:hover {
+                opacity: 1;
+            }
+
+            .starred-icon {
+                font-size: 0.85rem;
+                margin-right: 0.25rem;
+            }
+
+            .refresh-btn-spinner {
+                display: none;
+                width: 14px;
+                height: 14px;
+                border: 2px solid rgba(0, 255, 136, 0.3);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                vertical-align: middle;
+                margin-right: 6px;
+            }
+
+            .last-updated {
+                font-size: 0.75rem;
+                color: var(--text-dim);
+                font-family: "Space Mono", monospace;
+            }
+
             /* Opciones del artículo */
             .article-options {
                 display: none;
@@ -772,6 +825,13 @@
                         <span class="stat-label">Palabras</span>
                         <span class="stat-value" id="estimatedWords">0</span>
                     </div>
+                    <div class="stat" style="margin-left:auto; justify-content:flex-end; align-items:flex-end; gap:0.5rem;">
+                        <span class="last-updated" id="lastUpdated">—</span>
+                        <button class="btn" id="refreshBtn" onclick="refreshArticles()" style="padding:0.4rem 1rem; font-size:0.8rem;">
+                            <span class="refresh-btn-spinner" id="refreshSpinner"></span>
+                            🔄 Actualizar artículos
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -845,6 +905,11 @@
                     articlesData = await response.json();
                     renderSources();
                     updateCounts();
+                    if (articlesData.generated_at) {
+                        const d = new Date(articlesData.generated_at);
+                        document.getElementById('lastUpdated').textContent =
+                            `Datos: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+                    }
                 } catch (error) {
                     console.error("Error cargando datos:", error);
                     alert(
@@ -986,6 +1051,33 @@
                         "_",
                     );
 
+                const url = article.url || article.alternate || '';
+                const isStarred = article.is_starred == '1' || article.is_starred === true || article.is_starred === 1;
+                const author = article.author || '';
+
+                let tags = article.tags || [];
+                if (typeof tags === 'string') {
+                    try { tags = JSON.parse(tags); } catch(e) {
+                        tags = tags.replace(/^\[|\]$/g, '').split(',')
+                            .map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+                    }
+                }
+
+                let dateStr = '';
+                if (article.published) {
+                    dateStr = new Date(article.published * 1000).toLocaleDateString();
+                } else if (article.created_at) {
+                    dateStr = new Date(article.created_at).toLocaleDateString();
+                }
+
+                const tagsHtml = tags.length
+                    ? `<div class="article-tags">${tags.map(t => `<span class="article-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+                    : '';
+
+                const urlLink = url
+                    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="article-link" onclick="event.stopPropagation()" title="Abrir artículo original">🔗</a>`
+                    : '';
+
                 return `
                     <div class="article-item" id="article_${articleId}">
                         <div class="article-main">
@@ -1000,12 +1092,18 @@
                                        onchange="toggleArticle(this, '${articleId}', '${source}', '${escapeHtml(article.id)}', '${escapeHtml(categoryName)}', '${escapeHtml(feedId)}', '${escapeHtml(article.title)}')" />
                             </div>
                             <div class="article-content">
-                                <div class="article-title">${escapeHtml(article.title)}</div>
+                                <div class="article-title">
+                                    ${isStarred ? '<span class="starred-icon" title="Destacado">⭐</span>' : ''}
+                                    ${escapeHtml(article.title)}
+                                    ${urlLink}
+                                </div>
                                 <div class="article-meta">
                                     <span class="meta-item">📊 ${(article.word_count || 0).toLocaleString()} palabras</span>
-                                    <span class="meta-item">📝 ${(article.char_count || 0).toLocaleString()} caracteres</span>
-                                    ${article.published ? `<span class="meta-item">📅 ${new Date(article.published * 1000).toLocaleDateString()}</span>` : ""}
+                                    <span class="meta-item">📝 ${(article.char_count || 0).toLocaleString()} chars</span>
+                                    ${dateStr ? `<span class="meta-item">📅 ${dateStr}</span>` : ''}
+                                    ${author ? `<span class="meta-item">✍ ${escapeHtml(author)}</span>` : ''}
                                 </div>
+                                ${tagsHtml}
                             </div>
                         </div>
                         <div class="article-options">
@@ -1456,6 +1554,52 @@
                 const div = document.createElement("div");
                 div.textContent = text;
                 return div.innerHTML;
+            }
+
+            let refreshPollInterval = null;
+
+            async function refreshArticles() {
+                const btn = document.getElementById('refreshBtn');
+                const spinner = document.getElementById('refreshSpinner');
+
+                try {
+                    const resp = await fetch('/api/refresh-articles', { method: 'POST' });
+                    const data = await resp.json();
+                    if (!data.success) {
+                        alert(`⚠ ${data.message}`);
+                        return;
+                    }
+                } catch(e) {
+                    alert('✗ Error de conexión con el servidor.');
+                    return;
+                }
+
+                btn.disabled = true;
+                spinner.style.display = 'inline-block';
+                document.getElementById('lastUpdated').textContent = 'Actualizando…';
+
+                refreshPollInterval = setInterval(async () => {
+                    try {
+                        const r = await fetch('/api/refresh-status');
+                        const status = await r.json();
+                        document.getElementById('lastUpdated').textContent = status.message || 'Actualizando…';
+
+                        if (!status.running) {
+                            clearInterval(refreshPollInterval);
+                            refreshPollInterval = null;
+                            btn.disabled = false;
+                            spinner.style.display = 'none';
+
+                            if (status.error) {
+                                alert(`✗ Error al actualizar:\n${status.error}`);
+                            } else {
+                                await loadData();
+                            }
+                        }
+                    } catch(e) {
+                        console.error('Error polling refresh status:', e);
+                    }
+                }, 1500);
             }
 
             // Cargar datos al inicio

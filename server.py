@@ -26,6 +26,14 @@ ARTICLES_DATA_FILE = os.path.join(WORK_DIR, "articles_data.json")
 # Crear directorio de trabajo si no existe
 os.makedirs(WORK_DIR, exist_ok=True)
 
+# Estado global del refresh de artículos
+refresh_status = {
+    "running": False,
+    "finished_at": None,
+    "error": None,
+    "message": "Sin actualizar"
+}
+
 # Estado global del proceso
 conversion_status = {
     "running": False,
@@ -151,6 +159,82 @@ def run_conversion():
         import traceback
         traceback.print_exc()
         update_status(error=error_msg, finished=True)
+
+
+def run_fetch_articles():
+    """Ejecuta fetch_articles.py para regenerar el JSON de artículos"""
+    global refresh_status
+
+    try:
+        # Buscar fetch_articles.py en múltiples ubicaciones
+        fetch_script = None
+        server_dir = os.path.dirname(os.path.abspath(__file__))
+        for candidate in [
+            os.path.join(WORK_DIR, 'fetch_articles.py'),
+            os.path.join(server_dir, 'web', 'fetch_articles.py'),
+            os.path.join(server_dir, 'fetch_articles.py'),
+        ]:
+            if os.path.exists(candidate):
+                fetch_script = candidate
+                break
+
+        if not fetch_script:
+            refresh_status.update({"running": False, "error": "No se encontró fetch_articles.py", "message": "Error: script no encontrado"})
+            return
+
+        # Buscar config.json
+        config_file = None
+        for candidate in [
+            os.path.join(WORK_DIR, 'config', 'config.json'),
+            os.path.join(WORK_DIR, 'config.json'),
+            os.path.join(server_dir, 'docker', 'config.json'),
+        ]:
+            if os.path.exists(candidate):
+                config_file = candidate
+                break
+
+        cmd = ['python3', fetch_script, '--output', ARTICLES_DATA_FILE]
+        if config_file:
+            cmd += ['--config', config_file]
+
+        refresh_status["message"] = "Conectando con Wallabag y FreshRSS..."
+        process = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+
+        if process.returncode == 0:
+            refresh_status.update({
+                "running": False,
+                "finished_at": datetime.now().isoformat(),
+                "error": None,
+                "message": "Artículos actualizados correctamente"
+            })
+        else:
+            err = process.stderr or process.stdout or "Error desconocido"
+            refresh_status.update({"running": False, "error": err[:500], "message": "Error al actualizar"})
+
+    except subprocess.TimeoutExpired:
+        refresh_status.update({"running": False, "error": "Timeout (>3 min)", "message": "Error: timeout"})
+    except Exception as e:
+        refresh_status.update({"running": False, "error": str(e), "message": f"Error: {str(e)}"})
+
+
+@app.route('/api/refresh-articles', methods=['POST'])
+def refresh_articles():
+    """Lanza fetch_articles.py en background para actualizar el JSON"""
+    global refresh_status
+
+    if refresh_status.get("running"):
+        return jsonify({"success": False, "message": "Ya hay una actualización en curso"}), 400
+
+    refresh_status = {"running": True, "finished_at": None, "error": None, "message": "Iniciando..."}
+    thread = threading.Thread(target=run_fetch_articles, name="FetchThread", daemon=True)
+    thread.start()
+    return jsonify({"success": True, "message": "Actualización iniciada"})
+
+
+@app.route('/api/refresh-status', methods=['GET'])
+def get_refresh_status():
+    """Estado de la actualización de artículos"""
+    return jsonify(refresh_status)
 
 
 @app.route('/api/articles_data.json')
