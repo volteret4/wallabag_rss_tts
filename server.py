@@ -22,6 +22,7 @@ SELECTION_FILE = os.path.join(WORK_DIR, "selection.json")
 STATUS_FILE = os.path.join(WORK_DIR, "conversion_status.json")
 LOG_FILE = os.path.join(WORK_DIR, "conversion_log.txt")
 ARTICLES_DATA_FILE = os.path.join(WORK_DIR, "articles_data.json")
+CONFIG_FILE = os.path.join(WORK_DIR, "config.json")
 
 # Crear directorio de trabajo si no existe
 os.makedirs(WORK_DIR, exist_ok=True)
@@ -389,6 +390,35 @@ def debug_info():
     }
 
     return jsonify(debug_data)
+
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    try:
+        if not os.path.exists(CONFIG_FILE):
+            return jsonify({"success": False, "error": "config.json no encontrado"}), 404
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return jsonify({"success": True, "config": config})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/config', methods=['POST'])
+def save_config():
+    try:
+        config = request.json
+        if not config:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+        # Backup antes de guardar
+        if os.path.exists(CONFIG_FILE):
+            import shutil
+            shutil.copy2(CONFIG_FILE, CONFIG_FILE + '.bak')
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=4)
+        return jsonify({"success": True, "message": "Configuración guardada correctamente"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':
