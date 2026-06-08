@@ -8,11 +8,17 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import os
+import re
 import subprocess
 import threading
 import time
 from datetime import datetime
 import sys
+
+_ANSI_RE = re.compile(r'\x1b\[[0-9;]*[mGKHFJ]|\r')
+
+def _clean(line):
+    return _ANSI_RE.sub('', line).strip()
 
 app = Flask(__name__)
 CORS(app)
@@ -118,30 +124,17 @@ def run_conversion():
             log.flush()
 
             for line in process.stdout:
-                # Escribir al log
-                log.write(line)
+                clean = _clean(line)
+                if not clean:
+                    continue
+                log.write(clean + '\n')
                 log.flush()
+                print(f"[PROCESO] {clean}")
 
-                # También imprimir en consola del servidor
-                print(f"[PROCESO] {line.rstrip()}")
-
-                # Parsear el progreso
-                if "Procesando" in line:
-                    try:
-                        parts = line.split(":")
-                        if len(parts) >= 2:
-                            progress_part = parts[0].strip()
-                            title = ":".join(parts[1:]).strip()
-
-                            if "/" in progress_part:
-                                nums = progress_part.split("/")[-1].split()
-                                if len(nums) >= 1:
-                                    current = int(nums[0].split("/")[0].split()[-1])
-                                    total = int(nums[0].split("/")[1])
-                                    print(f"📊 Progreso: {current}/{total} - {title}")
-                                    update_status(progress=current, total=total, current_article=title)
-                    except Exception as e:
-                        print(f"⚠️  Error parseando progreso: {e}")
+                m = re.search(r'Procesando\s+(\d+)/(\d+):\s*(.+)', clean)
+                if m:
+                    current_n, total_n, title = int(m.group(1)), int(m.group(2)), m.group(3)
+                    update_status(progress=current_n, total=total_n, current_article=title)
 
         # Esperar a que termine
         return_code = process.wait()
