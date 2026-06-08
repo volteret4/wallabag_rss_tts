@@ -344,6 +344,9 @@ def fetch_all_data(config_file='config.json', output_file='articles_data.json'):
                     elif 'content' in article and 'content' in article['content']:
                         content = article['content']['content']
 
+                    cats = [c for c in article.get('categories', []) if isinstance(c, str)]
+                    is_starred = any('starred' in c for c in cats)
+
                     articles_data.append({
                         'id': article.get('id', ''),
                         'title': article.get('title', 'Sin título'),
@@ -352,7 +355,8 @@ def fetch_all_data(config_file='config.json', output_file='articles_data.json'):
                         'author': article.get('author', ''),
                         'word_count': len(content.split()),
                         'char_count': len(content),
-                        'alternate': article.get('alternate', [{}])[0].get('href', '') if article.get('alternate') else ''
+                        'alternate': article.get('alternate', [{}])[0].get('href', '') if article.get('alternate') else '',
+                        'is_starred': is_starred
                     })
 
                 feed_data = {

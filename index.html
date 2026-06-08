@@ -573,6 +573,65 @@
                 transform: rotate(90deg);
             }
 
+            /* Search + controls row */
+            .search-controls {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 2rem;
+            }
+            .search-controls input[type="text"] {
+                flex: 1;
+                padding: 0.65rem 0.75rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Work Sans", sans-serif;
+                font-size: 1rem;
+                transition: border-color 0.2s;
+            }
+            .search-controls input[type="text"]:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+            .search-controls select {
+                padding: 0.6rem 0.5rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-secondary);
+                font-size: 0.8rem;
+                font-family: "Space Mono", monospace;
+                cursor: pointer;
+            }
+            .search-controls select:focus { outline: none; border-color: var(--accent); }
+            .btn-sm {
+                padding: 0.5rem 0.75rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-secondary);
+                font-family: "Space Mono", monospace;
+                font-size: 0.75rem;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all 0.2s;
+            }
+            .btn-sm:hover {
+                border-color: var(--accent);
+                color: var(--text-primary);
+            }
+
+            /* Sort select inside source/feed headers */
+            .sort-select {
+                padding: 0.2rem 0.4rem;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                color: var(--text-dim);
+                font-size: 0.7rem;
+                font-family: "Space Mono", monospace;
+                cursor: pointer;
+            }
+            .sort-select:focus { outline: none; border-color: var(--accent); }
+
             .action-panel {
                 position: fixed;
                 bottom: 2rem;
@@ -1073,28 +1132,23 @@
         </div>
 
         <div class="container">
-            <div class="search-box">
-                <input
-                    type="text"
-                    id="searchFilter"
-                    placeholder="🔍 Buscar artículos..."
-                    oninput="filterArticles()"
-                />
-            </div>
-
-            <div class="controls">
-                <button class="btn" onclick="selectAll()">
-                    Seleccionar Todos
-                </button>
-                <button class="btn" onclick="deselectAll()">
-                    Deseleccionar Todos
-                </button>
-                <button class="btn" onclick="downloadSelectionJson()">
-                    💾 Descargar JSON
-                </button>
-                <button class="btn" onclick="openConfigModal()" style="margin-left:auto;">
-                    ⚙ Configuración
-                </button>
+            <div class="search-controls">
+                <input type="text" id="searchFilter"
+                    placeholder="🔍 Buscar por título o tag..."
+                    oninput="filterArticles()" />
+                <select id="sortOrder" onchange="applySortAndRender()" title="Ordenar artículos">
+                    <option value="default">Orden original</option>
+                    <option value="date-desc">Fecha ↓</option>
+                    <option value="date-asc">Fecha ↑</option>
+                    <option value="words-desc">Palabras ↓</option>
+                    <option value="words-asc">Palabras ↑</option>
+                    <option value="title-asc">Título A-Z</option>
+                    <option value="title-desc">Título Z-A</option>
+                </select>
+                <button class="btn-sm" onclick="selectAll()" title="Seleccionar todos">☑ Todos</button>
+                <button class="btn-sm" onclick="deselectAll()" title="Deseleccionar todos">☐ Ninguno</button>
+                <button class="btn-sm" onclick="downloadSelectionJson()" title="Descargar JSON">💾 JSON</button>
+                <button class="btn-sm" onclick="openConfigModal()" title="Configuración">⚙ Config</button>
             </div>
 
             <div id="sourcesContainer">
@@ -1175,7 +1229,7 @@
             }
 
             function renderWallabag() {
-                const articles = articlesData.wallabag.articles || [];
+                const articles = sortArticles(articlesData.wallabag.articles || []);
                 if (!articles.length) return "";
 
                 let html = `
@@ -1270,7 +1324,7 @@
                         <div class="articles-list">
                 `;
 
-                feed.articles.forEach((article) => {
+                sortArticles(feed.articles).forEach((article) => {
                     html += renderArticle(
                         article,
                         "freshrss",
@@ -1532,17 +1586,37 @@
             }
 
             function filterArticles() {
-                const query = document
-                    .getElementById("searchFilter")
-                    .value.toLowerCase();
+                const query = document.getElementById("searchFilter").value.toLowerCase();
                 document.querySelectorAll(".article-item").forEach((item) => {
-                    const title = item
-                        .querySelector(".article-title")
-                        .textContent.toLowerCase();
-                    item.style.display = title.includes(query)
-                        ? "flex"
-                        : "none";
+                    const title = item.querySelector(".article-title")?.textContent.toLowerCase() || '';
+                    const tags = Array.from(item.querySelectorAll(".article-tag"))
+                        .map(t => t.textContent.toLowerCase()).join(' ');
+                    const match = title.includes(query) || tags.includes(query);
+                    item.style.display = match ? "flex" : "none";
                 });
+            }
+
+            function sortArticles(articles) {
+                const order = document.getElementById('sortOrder')?.value || 'default';
+                if (order === 'default') return articles;
+                const sorted = [...articles];
+                sorted.sort((a, b) => {
+                    switch (order) {
+                        case 'date-desc': return (b.published || 0) - (a.published || 0) || new Date(b.created_at||0) - new Date(a.created_at||0);
+                        case 'date-asc':  return (a.published || 0) - (b.published || 0) || new Date(a.created_at||0) - new Date(b.created_at||0);
+                        case 'words-desc': return (b.word_count || 0) - (a.word_count || 0);
+                        case 'words-asc':  return (a.word_count || 0) - (b.word_count || 0);
+                        case 'title-asc':  return (a.title||'').localeCompare(b.title||'');
+                        case 'title-desc': return (b.title||'').localeCompare(a.title||'');
+                        default: return 0;
+                    }
+                });
+                return sorted;
+            }
+
+            function applySortAndRender() {
+                renderSources();
+                updateCounts();
             }
 
             async function saveToServer() {
