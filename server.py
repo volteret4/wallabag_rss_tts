@@ -413,4 +413,4 @@ if __name__ == '__main__':
     """)
 
     # Correr en 0.0.0.0:5000 para ser accesible desde fuera del contenedor
-    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
