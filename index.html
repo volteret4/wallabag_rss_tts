@@ -715,6 +715,195 @@
                     grid-template-columns: 1fr;
                 }
             }
+
+            /* Modal de configuración */
+            .config-modal {
+                display: none;
+                position: fixed;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                background: rgba(0,0,0,0.9);
+                z-index: 2000;
+                align-items: center;
+                justify-content: center;
+            }
+            .config-modal.open { display: flex; }
+            .config-content {
+                background: var(--bg-secondary);
+                border: 2px solid var(--accent);
+                border-radius: 8px;
+                width: 90%;
+                max-width: 800px;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .config-header {
+                padding: 1.5rem 2rem;
+                background: var(--bg-tertiary);
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .config-header h2 {
+                font-family: "Space Mono", monospace;
+                font-size: 1.2rem;
+                color: var(--accent);
+            }
+            .config-close {
+                background: none;
+                border: none;
+                color: var(--text-dim);
+                font-size: 1.5rem;
+                cursor: pointer;
+                line-height: 1;
+            }
+            .config-close:hover { color: var(--text-primary); }
+            .config-tabs {
+                display: flex;
+                border-bottom: 1px solid var(--border);
+                background: var(--bg-tertiary);
+            }
+            .config-tab {
+                padding: 0.75rem 1.5rem;
+                cursor: pointer;
+                font-family: "Space Mono", monospace;
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                border-bottom: 2px solid transparent;
+                transition: all 0.2s;
+                background: none;
+                border-top: none;
+                border-left: none;
+                border-right: none;
+            }
+            .config-tab:hover { color: var(--text-primary); }
+            .config-tab.active {
+                color: var(--accent);
+                border-bottom-color: var(--accent);
+            }
+            .config-body {
+                padding: 1.5rem 2rem;
+                overflow-y: auto;
+                flex: 1;
+            }
+            .config-section { display: none; }
+            .config-section.active { display: block; }
+            .config-field {
+                margin-bottom: 1rem;
+            }
+            .config-field label {
+                display: block;
+                font-size: 0.75rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                font-family: "Space Mono", monospace;
+                margin-bottom: 0.35rem;
+            }
+            .config-field input, .config-field select {
+                width: 100%;
+                padding: 0.6rem 0.75rem;
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-family: "Work Sans", sans-serif;
+                font-size: 0.9rem;
+                border-radius: 2px;
+                transition: border-color 0.2s;
+            }
+            .config-field input:focus, .config-field select:focus {
+                outline: none;
+                border-color: var(--accent);
+            }
+            .config-field-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+            .config-checkbox-row {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+            .config-checkbox-row input { width: auto; }
+            .config-checkbox-row label {
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                text-transform: none;
+                letter-spacing: normal;
+                margin: 0;
+            }
+            .feeds-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 1rem;
+                font-size: 0.85rem;
+            }
+            .feeds-table th {
+                text-align: left;
+                padding: 0.5rem 0.75rem;
+                background: var(--bg-tertiary);
+                color: var(--text-dim);
+                font-family: "Space Mono", monospace;
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                border-bottom: 1px solid var(--border);
+            }
+            .feeds-table td {
+                padding: 0.5rem 0.4rem;
+                border-bottom: 1px solid rgba(255,255,255,0.04);
+                vertical-align: middle;
+            }
+            .feeds-table input, .feeds-table select {
+                width: 100%;
+                padding: 0.35rem 0.5rem;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                font-size: 0.8rem;
+                border-radius: 2px;
+            }
+            .feeds-table input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+            .btn-danger {
+                background: transparent;
+                border: 1px solid var(--danger);
+                color: var(--danger);
+                padding: 0.25rem 0.6rem;
+                font-size: 0.75rem;
+                cursor: pointer;
+                border-radius: 2px;
+            }
+            .btn-danger:hover { background: var(--danger); color: white; }
+            .btn-add {
+                background: transparent;
+                border: 1px solid var(--accent);
+                color: var(--accent);
+                padding: 0.5rem 1rem;
+                font-family: "Space Mono", monospace;
+                font-size: 0.8rem;
+                cursor: pointer;
+                border-radius: 2px;
+            }
+            .btn-add:hover { background: rgba(0,255,136,0.1); }
+            .config-footer {
+                padding: 1rem 2rem;
+                border-top: 1px solid var(--border);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: var(--bg-tertiary);
+            }
+            .config-status {
+                font-size: 0.85rem;
+                color: var(--text-dim);
+            }
+            .config-status.ok { color: var(--accent); }
+            .config-status.err { color: var(--danger); }
         </style>
     </head>
     <body>
@@ -855,6 +1044,9 @@
                 </button>
                 <button class="btn" onclick="downloadSelectionJson()">
                     💾 Descargar JSON
+                </button>
+                <button class="btn" onclick="openConfigModal()" style="margin-left:auto;">
+                    ⚙ Configuración
                 </button>
             </div>
 
@@ -1602,8 +1794,275 @@
                 }, 1500);
             }
 
+            // ── CONFIG MODAL ──────────────────────────────────────────
+            const VOICES = [
+                {v:"es-ES-AlvaroNeural", l:"Alvaro (España, H)"},
+                {v:"es-ES-ElviraNeural", l:"Elvira (España, M)"},
+                {v:"es-ES-AbrilNeural",  l:"Abril (España, M)"},
+                {v:"es-MX-DaliaNeural",  l:"Dalia (México, M)"},
+                {v:"es-MX-JorgeNeural",  l:"Jorge (México, H)"},
+                {v:"es-AR-ElenaNeural",  l:"Elena (Argentina, M)"},
+                {v:"es-AR-TomasNeural",  l:"Tomás (Argentina, H)"},
+                {v:"en-US-AriaNeural",   l:"Aria (US, M)"},
+                {v:"en-US-GuyNeural",    l:"Guy (US, H)"},
+                {v:"en-GB-SoniaNeural",  l:"Sonia (UK, M)"},
+                {v:"en-GB-RyanNeural",   l:"Ryan (UK, H)"},
+            ];
+
+            function voiceOptions(selected) {
+                return VOICES.map(v =>
+                    `<option value="${v.v}" ${v.v === selected ? 'selected' : ''}>${v.l}</option>`
+                ).join('');
+            }
+
+            function openConfigModal() {
+                document.getElementById('configModal').classList.add('open');
+                loadConfig();
+            }
+            function closeConfigModal() {
+                document.getElementById('configModal').classList.remove('open');
+            }
+            function switchConfigTab(tab) {
+                document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.config-section').forEach(s => s.classList.remove('active'));
+                document.querySelector(`.config-tab[data-tab="${tab}"]`).classList.add('active');
+                document.getElementById(`cfg-${tab}`).classList.add('active');
+            }
+
+            async function loadConfig() {
+                try {
+                    const r = await fetch('/api/config');
+                    const data = await r.json();
+                    if (!data.success) { alert('Error cargando config: ' + data.error); return; }
+                    renderConfig(data.config);
+                } catch(e) { alert('Error de conexión al cargar config'); }
+            }
+
+            function renderConfig(cfg) {
+                // Wallabag
+                const wb = cfg.wallabag || {};
+                document.getElementById('cfg-wb-url').value      = wb.url || '';
+                document.getElementById('cfg-wb-clientid').value = wb.client_id || '';
+                document.getElementById('cfg-wb-secret').value   = wb.client_secret || '';
+                document.getElementById('cfg-wb-user').value     = wb.username || '';
+                document.getElementById('cfg-wb-pass').value     = wb.password || '';
+                document.getElementById('cfg-wb-limit').value    = wb.limit ?? 10;
+
+                // FreshRSS
+                const fr = cfg.freshrss || {};
+                document.getElementById('cfg-fr-url').value     = fr.url || '';
+                document.getElementById('cfg-fr-user').value    = fr.username || '';
+                document.getElementById('cfg-fr-pass').value    = fr.password || '';
+                document.getElementById('cfg-fr-limit').value   = fr.limit ?? 10;
+                document.getElementById('cfg-fr-unread').checked = !!fr.unread_only;
+
+                // Feeds
+                const feeds = fr.feeds || [];
+                renderFeedsTable(feeds);
+            }
+
+            function renderFeedsTable(feeds) {
+                const tbody = document.getElementById('feeds-tbody');
+                tbody.innerHTML = feeds.map((f, i) => `
+                    <tr id="feed-row-${i}">
+                        <td><input type="text" value="${escapeHtml(f.id || '')}" onchange="updateFeed(${i},'id',this.value)" style="width:90px"/></td>
+                        <td><input type="text" value="${escapeHtml(f.name || '')}" onchange="updateFeed(${i},'name',this.value)"/></td>
+                        <td>
+                            <select onchange="updateFeed(${i},'voice',this.value)">
+                                ${voiceOptions(f.voice)}
+                            </select>
+                        </td>
+                        <td style="text-align:center">
+                            <input type="checkbox" ${f.include_youtube ? 'checked' : ''} onchange="updateFeed(${i},'include_youtube',this.checked)"/>
+                        </td>
+                        <td><input type="number" value="${f.limit ?? 10}" min="1" max="100" style="width:60px" onchange="updateFeed(${i},'limit',+this.value)"/></td>
+                        <td><button class="btn-danger" onclick="removeFeed(${i})">✕</button></td>
+                    </tr>
+                `).join('');
+            }
+
+            let currentFeeds = [];
+            function updateFeed(i, key, val) { currentFeeds[i][key] = val; }
+            function removeFeed(i) {
+                currentFeeds.splice(i, 1);
+                renderFeedsTable(currentFeeds);
+            }
+            function addFeed() {
+                currentFeeds.push({id:'feed/', name:'Nuevo feed', voice:'es-ES-AlvaroNeural', include_youtube:false, limit:10});
+                renderFeedsTable(currentFeeds);
+            }
+
+            // Sync currentFeeds when feeds tab is opened
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelector('[data-tab="feeds"]').addEventListener('click', () => {
+                    // Already rendered, currentFeeds is live
+                });
+            });
+
+            function getConfigFromForm() {
+                return {
+                    wallabag: {
+                        url:           document.getElementById('cfg-wb-url').value.trim(),
+                        client_id:     document.getElementById('cfg-wb-clientid').value.trim(),
+                        client_secret: document.getElementById('cfg-wb-secret').value.trim(),
+                        username:      document.getElementById('cfg-wb-user').value.trim(),
+                        password:      document.getElementById('cfg-wb-pass').value,
+                        limit:         +document.getElementById('cfg-wb-limit').value,
+                    },
+                    freshrss: {
+                        url:         document.getElementById('cfg-fr-url').value.trim(),
+                        username:    document.getElementById('cfg-fr-user').value.trim(),
+                        password:    document.getElementById('cfg-fr-pass').value,
+                        limit:       +document.getElementById('cfg-fr-limit').value,
+                        unread_only: document.getElementById('cfg-fr-unread').checked,
+                        feeds:       currentFeeds,
+                    }
+                };
+            }
+
+            async function saveConfig() {
+                const status = document.getElementById('cfg-status');
+                status.textContent = 'Guardando…';
+                status.className = 'config-status';
+                try {
+                    const r = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(getConfigFromForm())
+                    });
+                    const data = await r.json();
+                    if (data.success) {
+                        status.textContent = '✓ ' + data.message;
+                        status.className = 'config-status ok';
+                    } else {
+                        status.textContent = '✗ ' + data.error;
+                        status.className = 'config-status err';
+                    }
+                } catch(e) {
+                    status.textContent = '✗ Error de conexión';
+                    status.className = 'config-status err';
+                }
+            }
+
+            // Patch renderConfig to also set currentFeeds
+            const _origRenderConfig = renderConfig;
+            // Override to keep currentFeeds in sync
+            function renderConfig(cfg) {
+                const wb = cfg.wallabag || {};
+                document.getElementById('cfg-wb-url').value      = wb.url || '';
+                document.getElementById('cfg-wb-clientid').value = wb.client_id || '';
+                document.getElementById('cfg-wb-secret').value   = wb.client_secret || '';
+                document.getElementById('cfg-wb-user').value     = wb.username || '';
+                document.getElementById('cfg-wb-pass').value     = wb.password || '';
+                document.getElementById('cfg-wb-limit').value    = wb.limit ?? 10;
+                const fr = cfg.freshrss || {};
+                document.getElementById('cfg-fr-url').value     = fr.url || '';
+                document.getElementById('cfg-fr-user').value    = fr.username || '';
+                document.getElementById('cfg-fr-pass').value    = fr.password || '';
+                document.getElementById('cfg-fr-limit').value   = fr.limit ?? 10;
+                document.getElementById('cfg-fr-unread').checked = !!fr.unread_only;
+                currentFeeds = JSON.parse(JSON.stringify(fr.feeds || []));
+                renderFeedsTable(currentFeeds);
+            }
+
             // Cargar datos al inicio
             loadData();
         </script>
+
+        <!-- Modal de Configuración -->
+        <div class="config-modal" id="configModal">
+            <div class="config-content">
+                <div class="config-header">
+                    <h2>⚙ CONFIGURACIÓN</h2>
+                    <button class="config-close" onclick="closeConfigModal()">✕</button>
+                </div>
+                <div class="config-tabs">
+                    <button class="config-tab active" data-tab="wallabag" onclick="switchConfigTab('wallabag')">📚 Wallabag</button>
+                    <button class="config-tab" data-tab="freshrss" onclick="switchConfigTab('freshrss')">📰 FreshRSS</button>
+                    <button class="config-tab" data-tab="feeds" onclick="switchConfigTab('feeds')">📡 Feeds</button>
+                </div>
+                <div class="config-body">
+                    <!-- Wallabag -->
+                    <div class="config-section active" id="cfg-wallabag">
+                        <div class="config-field">
+                            <label>URL</label>
+                            <input type="url" id="cfg-wb-url" placeholder="https://wallabag.example.com"/>
+                        </div>
+                        <div class="config-field-row">
+                            <div class="config-field">
+                                <label>Client ID</label>
+                                <input type="text" id="cfg-wb-clientid"/>
+                            </div>
+                            <div class="config-field">
+                                <label>Client Secret</label>
+                                <input type="text" id="cfg-wb-secret"/>
+                            </div>
+                        </div>
+                        <div class="config-field-row">
+                            <div class="config-field">
+                                <label>Usuario</label>
+                                <input type="text" id="cfg-wb-user"/>
+                            </div>
+                            <div class="config-field">
+                                <label>Contraseña</label>
+                                <input type="password" id="cfg-wb-pass"/>
+                            </div>
+                        </div>
+                        <div class="config-field" style="max-width:150px">
+                            <label>Límite de artículos</label>
+                            <input type="number" id="cfg-wb-limit" min="1" max="500"/>
+                        </div>
+                    </div>
+                    <!-- FreshRSS -->
+                    <div class="config-section" id="cfg-freshrss">
+                        <div class="config-field">
+                            <label>URL</label>
+                            <input type="url" id="cfg-fr-url" placeholder="https://freshrss.example.com"/>
+                        </div>
+                        <div class="config-field-row">
+                            <div class="config-field">
+                                <label>Usuario</label>
+                                <input type="text" id="cfg-fr-user"/>
+                            </div>
+                            <div class="config-field">
+                                <label>Contraseña</label>
+                                <input type="password" id="cfg-fr-pass"/>
+                            </div>
+                        </div>
+                        <div class="config-field-row">
+                            <div class="config-field" style="max-width:150px">
+                                <label>Límite por feed</label>
+                                <input type="number" id="cfg-fr-limit" min="1" max="500"/>
+                            </div>
+                        </div>
+                        <div class="config-checkbox-row">
+                            <input type="checkbox" id="cfg-fr-unread" accent-color="var(--accent)"/>
+                            <label for="cfg-fr-unread">Solo artículos no leídos</label>
+                        </div>
+                    </div>
+                    <!-- Feeds -->
+                    <div class="config-section" id="cfg-feeds">
+                        <table class="feeds-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Voz</th>
+                                    <th>YouTube</th>
+                                    <th>Límite</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="feeds-tbody"></tbody>
+                        </table>
+                        <button class="btn-add" onclick="addFeed()">+ Añadir feed</button>
+                    </div>
+                </div>
+                <div class="config-footer">
+                    <span class="config-status" id="cfg-status"></span>
+                    <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar config.json</button>
+                </div>
+            </div>
+        </div>
     </body>
 </html>
