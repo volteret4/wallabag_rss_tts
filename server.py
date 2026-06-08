@@ -93,8 +93,8 @@ def run_conversion():
             update_status(error=error_msg, finished=True)
             return
 
-        # Comando a ejecutar
-        cmd = ['python3', 'process_selection.py', '--selection', SELECTION_FILE, '--generate-feed']
+        # Comando a ejecutar — sys.executable garantiza el mismo venv que el servidor
+        cmd = [sys.executable, 'process_selection.py', '--selection', SELECTION_FILE, '--generate-feed']
         print(f"🚀 Ejecutando: {' '.join(cmd)}")
 
         # Lanzar el script de procesamiento
@@ -194,7 +194,7 @@ def run_fetch_articles():
                 config_file = candidate
                 break
 
-        cmd = ['python3', fetch_script, '--output', ARTICLES_DATA_FILE]
+        cmd = [sys.executable, fetch_script, '--output', ARTICLES_DATA_FILE]
         if config_file:
             cmd += ['--config', config_file]
 
