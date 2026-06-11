@@ -386,6 +386,111 @@ def debug_info():
     return jsonify(debug_data)
 
 
+@app.route('/api/convert-url', methods=['POST'])
+def api_convert_url():
+    """Convierte una URL de artículo a MP3 y actualiza el feed."""
+    global conversion_status
+
+    if conversion_status["running"]:
+        return jsonify({"success": False, "error": "Hay una conversión en curso"}), 400
+
+    data = request.json or {}
+    url = data.get('url', '').strip()
+    if not url:
+        return jsonify({"success": False, "error": "URL requerida"}), 400
+
+    voice = data.get('voice', 'es-ES-AlvaroNeural')
+    language = data.get('language', 'auto')
+    include_youtube = bool(data.get('include_youtube', False))
+    title = data.get('title', '')
+
+    conversion_status = {
+        "running": True,
+        "progress": 0,
+        "total": 1,
+        "current_article": "Iniciando...",
+        "started_at": datetime.now().isoformat(),
+        "finished_at": None,
+        "errors": [],
+    }
+    update_status()
+
+    thread = threading.Thread(
+        target=_run_url_conversion,
+        args=(url, voice, language, include_youtube, title),
+        daemon=True,
+    )
+    thread.start()
+
+    return jsonify({"success": True, "message": "Conversión iniciada"})
+
+
+def _run_url_conversion(url, voice, language, include_youtube, title):
+    server_dir = os.path.dirname(os.path.abspath(__file__))
+    convert_script = None
+    for candidate in [
+        os.path.join(WORK_DIR, 'convert_url.py'),
+        os.path.join(server_dir, 'convert_url.py'),
+    ]:
+        if os.path.exists(candidate):
+            convert_script = candidate
+            break
+
+    if not convert_script:
+        update_status(error="No se encontró convert_url.py", finished=True)
+        return
+
+    os.chdir(WORK_DIR)
+
+    cmd = [
+        sys.executable, convert_script,
+        '--url', url,
+        '--voice', voice,
+        '--language', language,
+    ]
+    if include_youtube:
+        cmd.append('--include-youtube')
+    if title:
+        cmd += ['--title', title]
+
+    try:
+        with open(LOG_FILE, 'a') as log:
+            log.write(f"\n=== convert-url {datetime.now()} ===\nURL: {url}\n\n")
+            log.flush()
+
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+
+            for line in process.stdout:
+                clean = _clean(line)
+                if not clean:
+                    continue
+                log.write(clean + '\n')
+                log.flush()
+                print(f"[URL-CONV] {clean}")
+
+                m = re.search(r'Procesando\s+(\d+)/(\d+):\s*(.+)', clean)
+                if m:
+                    update_status(
+                        progress=int(m.group(1)),
+                        total=int(m.group(2)),
+                        current_article=m.group(3),
+                    )
+
+        rc = process.wait()
+        if rc == 0:
+            update_status(progress=1, total=1, finished=True, current_article="¡Conversión completada!")
+        else:
+            update_status(error=f"Proceso terminó con código {rc}", finished=True)
+    except Exception as e:
+        update_status(error=str(e), finished=True)
+
+
 @app.route('/api/config', methods=['GET'])
 def get_config():
     try:
