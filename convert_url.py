@@ -6,6 +6,7 @@ Usage: python3 convert_url.py --url https://... [--voice ...] [--language auto|e
 
 import argparse
 import os
+import re
 import sys
 
 import requests
@@ -81,24 +82,35 @@ def main():
     title = args.title or page_title or args.url
     print(f"📄 Título: {title}")
 
+    # Detect or resolve target language before creating the converter
+    # (we need a temporary instance just for language detection)
+    _tmp = ArticleToMP3Converter(output_dir=args.output, tts_engine='edge', voice=args.voice, skip_existing=False)
+    raw_text = _tmp.clean_text(html_content)
+
+    lang = args.language
+    if lang == 'auto':
+        detected = _tmp.detect_language(raw_text)
+        lang = detected if detected else 'es'
+        print(f"🔍 Idioma detectado: {lang}")
+        target_language = None  # no translation needed, already in detected lang
+    else:
+        target_language = lang  # converter will auto-detect source and translate if different
+
+    # Strip bare URLs from plain text (not link labels, just raw https://... strings)
+    text = re.sub(r'https?://\S+|www\.\S+', ' ', raw_text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    if not text or len(text.split()) < 20:
+        print("✗ No se pudo extraer texto suficiente del artículo")
+        sys.exit(1)
+
     converter = ArticleToMP3Converter(
         output_dir=args.output,
         tts_engine='edge',
         voice=args.voice,
         skip_existing=False,
+        target_language=target_language,
     )
-
-    text = converter.clean_text(html_content)
-    if not text or len(text.split()) < 20:
-        print("✗ No se pudo extraer texto suficiente del artículo")
-        sys.exit(1)
-
-    # Resolve language
-    lang = args.language
-    if lang == 'auto':
-        detected = converter.detect_language(text)
-        lang = detected if detected else 'es'
-        print(f"🔍 Idioma detectado: {lang}")
 
     print(f"\nProcesando 1/1: {title}")
     print(f"  🎤 Voz: {args.voice} | Idioma: {lang} | YouTube: {'Sí' if args.include_youtube else 'No'}")
