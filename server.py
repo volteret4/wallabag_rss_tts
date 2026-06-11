@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import json
 import os
+import queue as _queue_lib
 import re
 import subprocess
 import threading
@@ -33,6 +34,9 @@ CONFIG_FILE = os.path.join(WORK_DIR, "config.json")
 
 # Crear directorio de trabajo si no existe
 os.makedirs(WORK_DIR, exist_ok=True)
+
+# Cola de trabajos de conversión (procesada por _conversion_worker)
+_job_queue = _queue_lib.Queue()
 
 # Estado global del refresh de artículos
 refresh_status = {
@@ -75,33 +79,33 @@ def update_status(progress=None, total=None, current_article=None, error=None, f
         json.dump(conversion_status, f, indent=2)
 
 
-def run_conversion():
-    """Ejecuta el script de conversión en un hilo separado"""
+def run_conversion(selection_file=None):
+    """Ejecuta el script de conversión."""
     global conversion_status
+
+    if selection_file is None:
+        selection_file = SELECTION_FILE
 
     try:
         print("🔄 Iniciando conversión...")
         update_status(progress=0, current_article="Iniciando conversión...")
 
-        # Cambiar al directorio de trabajo
         print(f"📁 Cambiando a directorio: {WORK_DIR}")
         os.chdir(WORK_DIR)
 
-        # Verificar que los archivos necesarios existen
         if not os.path.exists('process_selection.py'):
             error_msg = f"❌ No se encuentra process_selection.py en {WORK_DIR}"
             print(error_msg)
             update_status(error=error_msg, finished=True)
             return
 
-        if not os.path.exists(SELECTION_FILE):
-            error_msg = f"❌ No se encuentra {SELECTION_FILE}"
+        if not os.path.exists(selection_file):
+            error_msg = f"❌ No se encuentra {selection_file}"
             print(error_msg)
             update_status(error=error_msg, finished=True)
             return
 
-        # Comando a ejecutar — sys.executable garantiza el mismo venv que el servidor
-        cmd = [sys.executable, 'process_selection.py', '--selection', SELECTION_FILE, '--generate-feed']
+        cmd = [sys.executable, 'process_selection.py', '--selection', selection_file, '--generate-feed']
         print(f"🚀 Ejecutando: {' '.join(cmd)}")
 
         # Lanzar el script de procesamiento
@@ -154,6 +158,29 @@ def run_conversion():
         import traceback
         traceback.print_exc()
         update_status(error=error_msg, finished=True)
+    finally:
+        # Clean up timestamped selection files created by the queue
+        if selection_file and selection_file != SELECTION_FILE:
+            try:
+                os.unlink(selection_file)
+            except OSError:
+                pass
+
+
+def _conversion_worker():
+    """Worker que procesa los trabajos de conversión uno a uno."""
+    while True:
+        job = _job_queue.get()
+        try:
+            kind = job['kind']
+            if kind == 'selection':
+                run_conversion(job['selection_file'])
+            elif kind == 'url':
+                _run_url_conversion(**job['kwargs'])
+        except Exception as e:
+            update_status(error=f"Worker error: {e}", finished=True)
+        finally:
+            _job_queue.task_done()
 
 
 def run_fetch_articles():
@@ -250,19 +277,9 @@ def save_selection():
         print("\n" + "="*60)
         print("📥 Nueva petición de conversión recibida")
 
-        # Verificar que no haya una conversión en curso
-        if conversion_status["running"]:
-            print("⚠️  Conversión ya en curso, rechazando petición")
-            return jsonify({
-                "success": False,
-                "message": "Ya hay una conversión en curso. Espera a que termine."
-            }), 400
-
-        # Obtener datos
         selection = request.json
         print(f"📊 Datos recibidos: {len(str(selection))} caracteres")
 
-        # Contar artículos seleccionados
         total_articles = len(selection.get('wallabag', []))
         for category in selection.get('freshrss', {}).get('categories', {}).values():
             for feed_articles in category.values():
@@ -271,45 +288,24 @@ def save_selection():
         print(f"📋 Total de artículos seleccionados: {total_articles}")
 
         if total_articles == 0:
-            print("⚠️  No hay artículos seleccionados")
-            return jsonify({
-                "success": False,
-                "message": "No hay artículos seleccionados"
-            }), 400
+            return jsonify({"success": False, "message": "No hay artículos seleccionados"}), 400
 
-        # Guardar selección
-        print(f"💾 Guardando selección en: {SELECTION_FILE}")
-        with open(SELECTION_FILE, 'w', encoding='utf-8') as f:
+        # Save to a unique file so concurrent queue jobs don't overwrite each other
+        sel_file = f"{SELECTION_FILE}.{int(time.time() * 1000)}"
+        with open(sel_file, 'w', encoding='utf-8') as f:
             json.dump(selection, f, ensure_ascii=False, indent=2)
-        print(f"✅ Selección guardada ({os.path.getsize(SELECTION_FILE)} bytes)")
+        print(f"💾 Selección guardada en: {sel_file}")
 
-        # Inicializar estado
-        conversion_status = {
-            "running": True,
-            "progress": 0,
-            "total": total_articles,
-            "current_article": "Iniciando...",
-            "started_at": datetime.now().isoformat(),
-            "finished_at": None,
-            "errors": []
-        }
-        update_status()
-        print("📝 Estado de conversión inicializado")
-
-        # Lanzar conversión en hilo separado
-        print("🚀 Lanzando hilo de conversión...")
-        thread = threading.Thread(target=run_conversion, name="ConversionThread")
-        thread.daemon = True
-        thread.start()
-        print(f"✅ Hilo iniciado: {thread.name} (alive: {thread.is_alive()})")
-
-        print("="*60 + "\n")
+        _job_queue.put({'kind': 'selection', 'selection_file': sel_file})
+        queue_pos = _job_queue.qsize()
+        print(f"📥 Trabajo añadido a la cola (tamaño={queue_pos})")
+        print("=" * 60 + "\n")
 
         return jsonify({
             "success": True,
-            "message": f"Conversión iniciada para {total_articles} artículos",
-            "path": os.path.abspath(SELECTION_FILE),
-            "total_articles": total_articles
+            "message": f"{total_articles} artículos añadidos a la cola (posición {queue_pos})",
+            "total_articles": total_articles,
+            "queue_position": queue_pos,
         })
 
     except Exception as e:
@@ -326,7 +322,7 @@ def save_selection():
 @app.route('/api/conversion-status', methods=['GET'])
 def get_conversion_status():
     """Obtener el estado actual de la conversión"""
-    return jsonify(conversion_status)
+    return jsonify({**conversion_status, 'queue_size': _job_queue.qsize()})
 
 
 @app.route('/api/conversion-log', methods=['GET'])
@@ -391,9 +387,6 @@ def api_convert_url():
     """Convierte una URL de artículo a MP3 y actualiza el feed."""
     global conversion_status
 
-    if conversion_status["running"]:
-        return jsonify({"success": False, "error": "Hay una conversión en curso"}), 400
-
     data = request.json or {}
     url = data.get('url', '').strip()
     if not url:
@@ -404,25 +397,17 @@ def api_convert_url():
     include_youtube = bool(data.get('include_youtube', False))
     title = data.get('title', '')
 
-    conversion_status = {
-        "running": True,
-        "progress": 0,
-        "total": 1,
-        "current_article": "Iniciando...",
-        "started_at": datetime.now().isoformat(),
-        "finished_at": None,
-        "errors": [],
-    }
-    update_status()
+    _job_queue.put({'kind': 'url', 'kwargs': {
+        'url': url, 'voice': voice, 'language': language,
+        'include_youtube': include_youtube, 'title': title,
+    }})
+    queue_pos = _job_queue.qsize()
 
-    thread = threading.Thread(
-        target=_run_url_conversion,
-        args=(url, voice, language, include_youtube, title),
-        daemon=True,
-    )
-    thread.start()
-
-    return jsonify({"success": True, "message": "Conversión iniciada"})
+    return jsonify({
+        "success": True,
+        "message": f"Añadido a la cola (posición {queue_pos})" if queue_pos > 1 else "Conversión iniciada",
+        "queue_position": queue_pos,
+    })
 
 
 def _run_url_conversion(url, voice, language, include_youtube, title):
@@ -518,6 +503,11 @@ def save_config():
         return jsonify({"success": True, "message": "Configuración guardada correctamente"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# Start the single conversion worker thread (processes jobs sequentially)
+_worker = threading.Thread(target=_conversion_worker, daemon=True, name='ConversionWorker')
+_worker.start()
 
 
 if __name__ == '__main__':
