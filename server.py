@@ -24,8 +24,9 @@ def _clean(line):
 app = Flask(__name__)
 CORS(app)
 
-# Configuración - ajustar según tu setup
-WORK_DIR = os.path.expanduser("~/contenedores/podcast-tts")  # Directorio de trabajo
+# Configuración - ajustar según tu setup. En Docker (repeat-one) se fija vía
+# PODCAST_WORK_DIR=/app; fuera de Docker cae al directorio nativo de siempre.
+WORK_DIR = os.environ.get("PODCAST_WORK_DIR") or os.path.expanduser("~/contenedores/podcast-tts")
 SELECTION_FILE = os.path.join(WORK_DIR, "selection.json")
 STATUS_FILE = os.path.join(WORK_DIR, "conversion_status.json")
 LOG_FILE = os.path.join(WORK_DIR, "conversion_log.txt")
