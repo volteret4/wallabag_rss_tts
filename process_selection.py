@@ -319,7 +319,7 @@ def main():
                        help='Directorio de salida para los MP3')
     parser.add_argument('--generate-feed', action='store_true',
                        help='Generar/actualizar feed RSS/Podcast')
-    parser.add_argument('--base-url', default='https://podcast.example.org',
+    parser.add_argument('--base-url', default=os.environ.get('PODCAST_BASE_URL', 'https://podcast.example.org'),
                        help='URL base para el feed RSS')
 
     args = parser.parse_args()

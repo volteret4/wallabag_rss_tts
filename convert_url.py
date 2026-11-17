@@ -69,7 +69,7 @@ def main():
                         help='Incluir audio de vídeos de YouTube embebidos')
     parser.add_argument('--title', default='', help='Título personalizado (opcional)')
     parser.add_argument('--output', default='audio_articles', help='Directorio de salida MP3')
-    parser.add_argument('--base-url', default='https://podcast.example.org')
+    parser.add_argument('--base-url', default=os.environ.get('PODCAST_BASE_URL', 'https://podcast.example.org'))
     args = parser.parse_args()
 
     print(f"🌐 Obteniendo artículo: {args.url}")

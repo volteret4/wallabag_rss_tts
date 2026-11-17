@@ -1348,7 +1348,7 @@ Ejemplos de uso:
                        help='Lista categorÃƒÆ’Ã‚Â­as y feeds de FreshRSS')
     parser.add_argument('--generate-feed', action='store_true',
                        help='Generar feed RSS/Podcast')
-    parser.add_argument('--base-url', default='https://podcast.example.org',
+    parser.add_argument('--base-url', default=os.environ.get('PODCAST_BASE_URL', 'https://podcast.example.org'),
                        help='URL base para el feed RSS')
     parser.add_argument('--feed-title', default='Mis ArtÃƒÆ’Ã‚Â­culos TTS',
                        help='TÃƒÆ’Ã‚Â­tulo del podcast')
