@@ -192,3 +192,31 @@ volumes:
   - ./audio_articles:/data/audio_articles # MP3s y feed RSS
   - ./config.json:/data/config/config.json # Configuración
 ```
+
+## Instalación con Docker Compose
+
+```bash
+cp .env.example .env && cp config.json.example_v3 config.json
+```
+
+Rellena `config.json` con tus credenciales (ver arriba).
+
+Rellena `.env` (credenciales y carpetas de tu equipo) y arranca:
+
+```bash
+docker compose up -d --build
+```
+
+Los datos que genera (bases, cachés) se quedan en esta misma carpeta, fuera de git.
+
+## Actualizaciones automáticas
+
+El `docker-compose.yml` trae su propia [Ofelia](https://github.com/mcuadros/ofelia), que lanza dentro del contenedor los mismos trabajos y a las mismas horas que en REPEAT-ONE (formato con segundos: `seg min hora día mes día-semana`, hora de `TZ`, por defecto Europe/Madrid):
+
+| Trabajo | Cuándo | Qué lanza |
+|---|---|---|
+| `podcast-tts-daily` | `0 0 17 * * *` | `python3 articles_to_mp3.py --source freshrss --tts edge --language es --generate-feed --config config.json` |
+
+Para cambiar una hora, edita su etiqueta `ofelia.job-exec.<trabajo>.schedule` en `docker-compose.yml` y vuelve a hacer `docker compose up -d`. Para lanzarlo a mano: `docker compose exec <servicio> <orden>`. Para no tener actualizaciones automáticas: `docker compose stop ofelia`.
+
+Esta Ofelia solo ve los contenedores de este repo (etiqueta `repeat-one.ofelia`), así que puedes tener varios módulos instalados por separado sin que se pisen. Necesita el socket de Docker en solo lectura.

@@ -1,0 +1,36 @@
+# Instalación por separado. Dentro de REPEAT-ONE se usa el docker-compose.yml de REPEAT-ONE.
+services:
+  podcast-tts:
+    build: .
+    restart: unless-stopped
+    user: "${UID_GID:-1000:1000}"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - HOME=/tmp
+      - PYTHONDONTWRITEBYTECODE=1
+      - PODCAST_WORK_DIR=/app
+    volumes:
+      - .:/app
+    ports:
+      - "${PUERTO:-8759}:5000"
+    labels:
+      ofelia.enabled: "true"
+      repeat-one.ofelia: "wallabag_rss_tts"
+      ofelia.job-exec.podcast-tts-daily.schedule: "0 0 17 * * *"
+      ofelia.job-exec.podcast-tts-daily.command: "nice -n 19 ionice -c 3 python3 articles_to_mp3.py --source freshrss --tts edge --language es --generate-feed --config config.json"
+
+  # Ofelia lanza los trabajos programados de las etiquetas ofelia.job-exec.* de arriba
+  # (los mismos horarios que en REPEAT-ONE). Solo ve los contenedores de este repo.
+  # Si no quieres actualizaciones automáticas: docker compose stop ofelia
+  ofelia:
+    image: mcuadros/ofelia:latest
+    restart: unless-stopped
+    command: daemon --docker --docker-filter=label=repeat-one.ofelia=wallabag_rss_tts
+    environment:
+      - TZ=${TZ:-Europe/Madrid}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - podcast-tts

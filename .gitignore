@@ -2,3 +2,10 @@ config.json
 audio_articles/
 articles_data.json
 .cache
+datos/
+selection.json
+conversion_status.json
+conversion_log.txt
+podcast.xml
+__pycache__/
+.env
