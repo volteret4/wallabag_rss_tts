@@ -1082,7 +1082,7 @@ class FreshRSSClient:
 class PodcastFeedGenerator:
     """Genera un feed RSS/Podcast simple"""
 
-    def __init__(self, output_dir, base_url, title="Mis ArtÃƒÆ’Ã‚Â­culos TTS", description="ArtÃƒÆ’Ã‚Â­culos convertidos a audio", image_url=None, author=None, feed_dir=None):
+    def __init__(self, output_dir, base_url, title="Mis Artículos TTS", description="Artículos convertidos a audio", image_url=None, author=None, feed_dir=None):
         self.output_dir = output_dir
         self.feed_dir = feed_dir if feed_dir is not None else (os.path.dirname(output_dir) or '.')
         self.base_url = base_url.rstrip('/')
@@ -1350,9 +1350,9 @@ Ejemplos de uso:
                        help='Generar feed RSS/Podcast')
     parser.add_argument('--base-url', default=os.environ.get('PODCAST_BASE_URL', 'https://podcast.example.org'),
                        help='URL base para el feed RSS')
-    parser.add_argument('--feed-title', default='Mis ArtÃƒÆ’Ã‚Â­culos TTS',
+    parser.add_argument('--feed-title', default='Mis Artículos TTS',
                        help='TÃƒÆ’Ã‚Â­tulo del podcast')
-    parser.add_argument('--feed-description', default='ArtÃƒÆ’Ã‚Â­culos convertidos a audio',
+    parser.add_argument('--feed-description', default='Artículos convertidos a audio',
                        help='DescripciÃƒÆ’Ã‚Â³n del podcast')
 
     parser.add_argument('--mark-as-read', action='store_true',
