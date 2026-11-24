@@ -9,3 +9,7 @@ conversion_log.txt
 podcast.xml
 __pycache__/
 .env
+
+podcast_config.env
+.env
+!.env.example
